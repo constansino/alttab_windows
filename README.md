@@ -1,110 +1,110 @@
-﻿# AltTaber
+# alttab_windows
 
-![GitHub release (latest by date)](https://img.shields.io/github/v/release/MrBeanCpp/AltTaber)
-![Github Release Downloads](https://img.shields.io/github/downloads/MrBeanCpp/AltTaber/total)
+![GitHub release (latest by date)](https://img.shields.io/github/v/release/MrBeanCpp/alttab_windows)
+![Github Release Downloads](https://img.shields.io/github/downloads/MrBeanCpp/alttab_windows/total)
 ![Language](https://img.shields.io/badge/language-C++-239120)
 ![OS](https://img.shields.io/badge/OS-Windows-0078D4)
 
-一款 MacOS 风格的 `Alt-Tab` 窗口/应用切换器，专为`Windows`💻️开发:
+һ�� MacOS ���� `Alt-Tab` ����/Ӧ���л�����רΪ`Windows`???����:
 
 ![ui](img/ui.png)
 
-## ⚡主要功能
+## ?��Ҫ����
 
-### 1. ``` Alt+Tab ```: 在应用程序📦间切换
+### 1. ``` Alt+Tab ```: ��Ӧ�ó���??���л�
 
-- 按住`Shift`反向切换
-- 松开`Alt`后，切换到指定应用
-- **最近使用**的应用优先排在左侧
+- ��ס`Shift`�����л�
+- �ɿ�`Alt`���л���ָ��Ӧ��
+- **���ʹ��**��Ӧ�������������
 
 ![switch apps](img/Alt_tab.gif)
 
-### 2. ``` Alt+` ```: 在同一应用的不同**窗口**🪟间轮换
+### 2. ``` Alt+` ```: ��ͬһӦ�õĲ�ͬ**����**??���ֻ�
 
-- 按住`Shift`反向切换
-- **最近活动**的窗口优先访问
-- 可用于隐藏`AltTaber`窗口（若可见）
+- ��ס`Shift`�����л�
+- **����**�Ĵ������ȷ���
+- ����������`alttab_windows`���ڣ����ɼ���
 
 ![switch windows](img/Alt_`.gif)
 
-### 3. `Alt+Tab` 呼出窗口切换器后，可用`🖱️鼠标滚轮`切换指定应用的窗口
+### 3. `Alt+Tab` ���������л����󣬿���`???������`�л�ָ��Ӧ�õĴ���
 
-- 向上滚轮：切换到上一个窗口（不改变焦点）
-- 向下滚轮：**最小化**上一个窗口
+- ���Ϲ��֣��л�����һ�����ڣ����ı佹�㣩
+- ���¹��֣�**��С��**��һ������
 
-#### ⌨️支持键盘操作
+#### ??֧�ּ��̲���
 
-- 方向键:
-    - ⬅️ ➡️: 切换当前选中的应用
-    - ⬆️ ⬇️: 映射到滚轮上下，切换/最小化窗口
-- 支持`Vim`风格的快捷键:
-    - `h` `l`: 切换当前选中的应用
-    - `j` `k`: 切换/最小化窗口
+- �����:
+    - ?? ??: �л���ǰѡ�е�Ӧ��
+    - ?? ??: ӳ�䵽�������£��л�/��С������
+- ֧��`Vim`���Ŀ�ݼ�:
+    - `h` `l`: �л���ǰѡ�е�Ӧ��
+    - `j` `k`: �л�/��С������
 
 ![wheel](img/Alt_Wheel.gif)
 
-### 4. 在`任务栏`的应用图标上使用`🖱️鼠标滚轮`切换窗口. 🚧`[Beta]`🚧
+### 4. ��`������`��Ӧ��ͼ����ʹ��`???������`�л�����. ??`[Beta]`??
 
 > [!CAUTION]
-> 实验性功能，仍在测试中，可能会遇到一些问题
+> ʵ���Թ��ܣ����ڲ����У����ܻ�����һЩ����
 >
-> 例如：对某些应用程序失效
+> ���磺��ĳЩӦ�ó���ʧЧ
 
-- 向上滚轮：切换到上一个窗口
-- 向下滚轮：**最小化**上一个窗口
+- ���Ϲ��֣��л�����һ������
+- ���¹��֣�**��С��**��һ������
 
 ![taskbar wheel](img/Taskbar_Wheel.gif)
 
-## 🌟更多特色
+## ??������ɫ
 
-- 窗口背景**毛玻璃**特效
+- ���ڱ���**ë����**��Ч
     - ![bg blur](img/bg-blur.png)
-- 适配`Win11`的窗口圆角效果
-- 在应用图标右上角显示**窗口数量**（Badge）
+- ����`Win11`�Ĵ���Բ��Ч��
+- ��Ӧ��ͼ�����Ͻ���ʾ**��������**��Badge��
     - ![app badge](img/app%20badge.png)
-- 在`QQ`🐧图标右下角显示当前聊天好友`头像`
+- ��`QQ`??ͼ�����½���ʾ��ǰ�������`ͷ��`
     - ![qq avatar](img/app%20qq%20avatar.png)
-- 支持在更高权限窗口上使用`Alt+Tab`切换
-- 更合理的窗口过滤规则
-- 支持高DPI缩放、多屏幕显示
-- 可切换显示屏幕：跟随鼠标所在屏幕 / 主屏幕
+- ֧���ڸ���Ȩ�޴�����ʹ��`Alt+Tab`�л�
+- �������Ĵ��ڹ��˹���
+- ֧�ָ�DPI���š�����Ļ��ʾ
+- ���л���ʾ��Ļ���������������Ļ / ����Ļ
 
-## ✒️TO-DO
+## ??TO-DO
 
-- [x] 单例模式
-- [ ] 自适应app太多的情况
-- [x] 支持配置开启启动项
-- [x] 支持管理管理员权限窗口
-- [ ] 自定义配置
+- [x] ����ģʽ
+- [ ] ����Ӧapp̫������
+- [x] ֧�����ÿ���������
+- [x] ֧�ֹ�������ԱȨ�޴���
+- [ ] �Զ�������
 - [ ] ...
 
-## 🔑以管理员身份运行（可选）
+## ??�Թ���Ա�������У���ѡ��
 
-`AltTaber`可以在普通用户权限下运行，但有一定的局限性：
+`alttab_windows`��������ͨ�û�Ȩ�������У�����һ���ľ����ԣ�
 
-只有以**管理员身份**运行，`AltTaber`才能管理拥有更高权限的窗口，例如：
+ֻ����**����Ա����**���У�`alttab_windows`���ܹ���ӵ�и���Ȩ�޵Ĵ��ڣ����磺
 
-- 系统窗口：如任务管理器
-- 管理员权限窗口：如游戏加速器
+- ϵͳ���ڣ������������
+- ����ԱȨ�޴��ڣ�����Ϸ������
 
-### 开机自启动
+### ����������
 
-在托盘菜单中点击`Start with Windows`即可设置开机自启动，自启动时的权限与当前程序权限一致
+�����̲˵��е��`Start with Windows`�������ÿ�����������������ʱ��Ȩ���뵱ǰ����Ȩ��һ��
 
-- 若当前程序以**管理员**权限运行，则开机自启动也会以管理员权限运行（计划任务）🔑
-- 若当前程序以**普通**权限运行，则开机自启动也会以普通权限运行（注册表）
+- ����ǰ������**����Ա**Ȩ�����У��򿪻�������Ҳ���Թ���ԱȨ�����У��ƻ�����??
+- ����ǰ������**��ͨ**Ȩ�����У��򿪻�������Ҳ������ͨȨ�����У�ע�����
 
-## ⚙配置
+## ?����
 
-配置保存在`config.ini`文件中，有两种方式可以修改配置：
+���ñ�����`config.ini`�ļ��У������ַ�ʽ�����޸����ã�
 
-1. 直接修改程序目录下的`config.ini`文件，并重启程序
-2. 🌟\[推荐\] 使用托盘菜单（右键托盘图标）中的`Settings`选项，此时会自动用`notepad`打开配置文件；
-   修改后，保存并**关闭文件**，程序会自动重载配置
+1. ֱ���޸ĳ���Ŀ¼�µ�`config.ini`�ļ�������������
+2. ??\[�Ƽ�\] ʹ�����̲˵����Ҽ�����ͼ�꣩�е�`Settings`ѡ���ʱ���Զ���`notepad`�������ļ���
+   �޸ĺ󣬱��沢**�ر��ļ�**��������Զ���������
 
-### 配置项
+### ������
 
-#### 字体
+#### ����
 
 ```ini
 [label]
@@ -112,7 +112,7 @@ font_family = "Microsoft YaHei UI"
 font_size = 10
 ```
 
-## 🧐Reference
+## ??Reference
 
 - [window-switcher](https://github.com/sigoden/window-switcher)
 - [cmdtab](https://github.com/stianhoiland/cmdtab)

@@ -1,5 +1,5 @@
-﻿#ifndef WIN_SWITCHER_UTIL_H
-#define WIN_SWITCHER_UTIL_H
+#ifndef ALTTAB_WINDOWS_UTIL_H
+#define ALTTAB_WINDOWS_UTIL_H
 
 #include <Windows.h>
 #include <QString>
@@ -33,6 +33,13 @@ namespace Util {
     POINT getCursorPos();
     HWND getCurrentTaskListThumbnailWnd();
     bool isTaskbarWindow(HWND hwnd);
+
+    // Window Management
+    void closeWindow(HWND hwnd);
+    void killProcess(HWND hwnd);
+    bool wakeUpProcessWindow(const QString& exePath);
 } // Util
 
-#endif //WIN_SWITCHER_UTIL_H
+#endif // ALTTAB_WINDOWS_UTIL_H
+
+

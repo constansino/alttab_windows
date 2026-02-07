@@ -1,5 +1,5 @@
-﻿#ifndef WIN_SWITCHER_WIDGET_H
-#define WIN_SWITCHER_WIDGET_H
+#ifndef ALTTAB_WINDOWS_WIDGET_H
+#define ALTTAB_WINDOWS_WIDGET_H
 
 #include <QWidget>
 #include <Windows.h>
@@ -14,33 +14,24 @@ struct WindowInfo {
     HWND hwnd = nullptr;
 };
 
-// C++17 inline: 防止重定义
 inline QDebug operator<<(QDebug dbg, const WindowInfo& info) {
     dbg.nospace() << "WindowInfo(" << info.title << ", " << info.className << ", " << info.hwnd << ")";
     return dbg.space();
 }
 
-Q_DECLARE_METATYPE(WindowInfo) // for QVariant
+Q_DECLARE_METATYPE(WindowInfo)
 struct WindowGroup {
     WindowGroup() = default;
-
-    void addWindow(const WindowInfo& window) {
-        windows.append(window);
-    }
-
+    void addWindow(const WindowInfo& window) { windows.append(window); }
     QString exePath;
     QIcon icon;
     QList<WindowInfo> windows;
 };
 
-Q_DECLARE_METATYPE(WindowGroup) // for QVariant
+Q_DECLARE_METATYPE(WindowGroup)
 
 QT_BEGIN_NAMESPACE
-
-namespace Ui {
-    class Widget;
-}
-
+namespace Ui { class Widget; }
 QT_END_NAMESPACE
 
 class Widget : public QWidget {
@@ -52,12 +43,8 @@ protected:
     void paintEvent(QPaintEvent* event) override;
 
 public:
-    enum ForegroundChangeSource {
-        WinEvent,
-        Inner,
-    };
-
-    Q_ENUM(ForegroundChangeSource) // for QMetaEnum, to QString
+    enum ForegroundChangeSource { WinEvent, Inner };
+    Q_ENUM(ForegroundChangeSource)
 
 public:
     explicit Widget(QWidget* parent = nullptr);
@@ -65,17 +52,19 @@ public:
     bool prepareListWidget();
     Q_INVOKABLE bool requestShow();
     void notifyForegroundChanged(HWND hwnd, ForegroundChangeSource source);
+    Q_INVOKABLE void onGlobalKeyDown(int vkCode);
 
     HWND hWnd() { return (HWND) winId(); }
-
     bool isForeground() { return GetForegroundWindow() == hWnd(); }
 
     ~Widget() override;
     bool eventFilter(QObject* watched, QEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
     void rotateTaskbarWindowInGroup(const QString& exePath, bool forward, int windows);
     void clearGroupWindowOrder();
 
 private:
+    void confirmSelection();
     bool forceShow();
     void showLabelForItem(QListWidgetItem* item, QString text = QString());
     void setupLabelFont();
@@ -90,10 +79,11 @@ private:
     Ui::Widget* ui;
     QListWidget* lw = nullptr;
     const QMargins ListWidgetMargin{24, 24, 24, 24};
-    /// exePath -> (HWND, time)
     QHash<QString, QHash<HWND, QDateTime>> winActiveOrder;
-    QList<HWND> groupWindowOrder; // for Alt+` 同组窗口切换
+    QList<HWND> groupWindowOrder;
+    QPoint savedMousePos;
+    HWND lastForegroundWindow = nullptr;
+    QString bestTargetExe;
 };
 
-
-#endif //WIN_SWITCHER_WIDGET_H
+#endif // ALTTAB_WINDOWS_WIDGET_H

@@ -38,6 +38,23 @@ LRESULT keyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
                     auto event = new QKeyEvent(QEvent::KeyPress, Qt::Key_QuoteLeft, Qt::AltModifier | shiftModifier);
                     QApplication::postEvent(Hooker::receiver, event); // async
                     return 1; // 阻止事件传递
+                } else {
+                    // Forward other keys to widget for shortcut handling
+                    // Enable GLOBAL shortcuts: Forward even if not foreground
+                    QMetaObject::invokeMethod(Hooker::receiver, "onGlobalKeyDown", Qt::QueuedConnection, Q_ARG(int, pKeyBoard->vkCode));
+                }
+            } else {
+                // Also forward when Alt is NOT pressed (e.g. for Ctrl+1 global shortcut)
+                if (Hooker::receiver) {
+                     // Filter noisy keys? Maybe only forward if Modifiers are pressed?
+                     // For now, let's forward everything and let Widget decide.
+                     // Performance impact: This is a callback for EVERY key press system-wide.
+                     // Optimization: Check if vkCode matches any known shortcut? Too complex here.
+                     // Compromise: Only forward if Modifier (Ctrl/Alt/Win) is down OR F-keys.
+                     bool isMod = (GetKeyState(VK_CONTROL) & 0x8000) || (GetKeyState(VK_MENU) & 0x8000) || (GetKeyState(VK_LWIN) & 0x8000) || (GetKeyState(VK_RWIN) & 0x8000);
+                     if (isMod || (pKeyBoard->vkCode >= VK_F1 && pKeyBoard->vkCode <= VK_F24)) {
+                         QMetaObject::invokeMethod(Hooker::receiver, "onGlobalKeyDown", Qt::QueuedConnection, Q_ARG(int, pKeyBoard->vkCode));
+                     }
                 }
             }
         } else if (wParam == WM_KEYUP) { // Amazing, Alt Down is `WM_SYSKEYDOWN`, but release is `WM_KEYUP`

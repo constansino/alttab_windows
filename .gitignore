@@ -1,2 +1,6 @@
-﻿cmake-build-*
-.idea
+build/
+.vs/
+*.user
+*.log
+debug.log
+config.ini

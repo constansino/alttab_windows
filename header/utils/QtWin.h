@@ -1,5 +1,5 @@
-﻿#ifndef WIN_SWITCHER_QTWIN_H
-#define WIN_SWITCHER_QTWIN_H
+#ifndef ALTTAB_WINDOWS_QTWIN_H
+#define ALTTAB_WINDOWS_QTWIN_H
 
 #include <QWidget>
 
@@ -9,4 +9,6 @@ namespace QtWin {
     QPixmap fromHICON(HICON icon);
 } // QtWin
 
-#endif //WIN_SWITCHER_QTWIN_H
+#endif // ALTTAB_WINDOWS_QTWIN_H
+
+

@@ -1,4 +1,4 @@
-ï»¿#include "utils/ScheduledTask.h"
+#include "utils/ScheduledTask.h"
 
 #include <QDateTime>
 #include <QDir>
@@ -31,11 +31,11 @@ QPair<QString, QString> ScheduledTask::queryAuthorUserId() {
 // ref: https://learn.microsoft.com/zh-cn/windows/win32/taskschd/tasksettings-priority
 // ref: https://learn.microsoft.com/zh-cn/windows/win32/taskschd/daily-trigger-example--xml-
 /// Start when user logon
-/// <br>æ³¨æ„ï¼šé»˜è®¤æƒ…å†µä¸‹ï¼Œç”¨å‘½ä»¤è¡Œå‚æ•°åˆ›å»ºçš„ä»»åŠ¡è¿›ç¨‹ä¼˜å…ˆçº§è¾ƒä½ï¼Œåªèƒ½é‡‡ç”¨xmlä¿®æ”¹ä¼˜å…ˆçº§
+/// <br>×¢Òâ£ºÄ¬ÈÏÇé¿öÏÂ£¬ÓÃÃüÁîĞĞ²ÎÊı´´½¨µÄÈÎÎñ½ø³ÌÓÅÏÈ¼¶½ÏµÍ£¬Ö»ÄÜ²ÉÓÃxmlĞŞ¸ÄÓÅÏÈ¼¶
 QString ScheduledTask::createTaskXml(const QString& exePath, const QString& description, bool asAdmin, int priority) {
     const QString isoTime = QDateTime::currentDateTime().toString(Qt::ISODateWithMs);
     const auto [author, userId] = queryAuthorUserId();
-    // Clion Nova bug: å¿…é¡»æŠŠxmlå­—ç¬¦ä¸²çš„ç¼©è¿›ä¹Ÿæ”¹æˆ4ä¸ªç©ºæ ¼ï¼Œå¦åˆ™æ•´ä¸ªcppæ–‡ä»¶éƒ½ä¼šè¢«æ ¼å¼åŒ–ä¸º2ä¸ªç©ºæ ¼
+    // Clion Nova bug: ±ØĞë°Ñxml×Ö·û´®µÄËõ½øÒ²¸Ä³É4¸ö¿Õ¸ñ£¬·ñÔòÕû¸öcppÎÄ¼ş¶¼»á±»¸ñÊ½»¯Îª2¸ö¿Õ¸ñ
     return QString(R"xml(<?xml version="1.0" encoding="UTF-16"?>
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
     <RegistrationInfo>
@@ -85,12 +85,12 @@ QString ScheduledTask::createTaskXml(const QString& exePath, const QString& desc
       .arg(description)
       .arg(userId)
       .arg(asAdmin ? "HighestAvailable" : "LeastPrivilege")
-      .arg(priority) // è®¡åˆ’ä»»åŠ¡ä¸­é»˜è®¤æ˜¯7ï¼ˆä½äºæ­£å¸¸ï¼‰ï¼Œä¸ºäº†æ”¹å˜è¿™ä¸ªå€¼ï¼Œåªèƒ½é€šè¿‡xml
+      .arg(priority) // ¼Æ»®ÈÎÎñÖĞÄ¬ÈÏÊÇ7£¨µÍÓÚÕı³££©£¬ÎªÁË¸Ä±äÕâ¸öÖµ£¬Ö»ÄÜÍ¨¹ıxml
       .arg(QDir::toNativeSeparators(exePath));
 }
 
 bool ScheduledTask::createTask(const QString& taskName) {
-    const auto xml = createTaskXml(qApp->applicationFilePath(), "AltTaber startup as Admin");
+    const auto xml = createTaskXml(qApp->applicationFilePath(), "alttab_windows startup as Admin");
     QFile file(qApp->applicationDirPath() + "/schtasks.xml");
     if (file.open(QIODevice::WriteOnly)) {
         file.write(xml.toUtf8());
@@ -115,7 +115,7 @@ bool ScheduledTask::createTask(const QString& taskName) {
 
 bool ScheduledTask::queryTask(const QString& taskName) {
     QProcess process;
-    // (Get-ScheduledTask -TaskName "taskName").Actions.Executable æ–¹ä¾¿ä½†æ˜¯å·¨æ…¢ï¼ˆ1000msï¼‰
+    // (Get-ScheduledTask -TaskName "taskName").Actions.Executable ·½±ãµ«ÊÇ¾ŞÂı£¨1000ms£©
     process.start("schtasks", QStringList() << "/query" << "/tn" << taskName << "/FO" << "CSV" << "/NH" << "/V");
     process.waitForFinished();
     // Task not exist
@@ -154,3 +154,4 @@ bool ScheduledTask::deleteTask(const QString& taskName) {
     }
     return isOk;
 }
+

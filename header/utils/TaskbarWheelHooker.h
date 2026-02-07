@@ -1,5 +1,5 @@
-ï»¿#ifndef WIN_SWITCHER_TASKBARWHEELHOOKER_H
-#define WIN_SWITCHER_TASKBARWHEELHOOKER_H
+#ifndef ALTTAB_WINDOWS_TASKBARWHEELHOOKER_H
+#define ALTTAB_WINDOWS_TASKBARWHEELHOOKER_H
 
 #include <QObject>
 #include <Windows.h>
@@ -13,12 +13,15 @@ public:
     inline static TaskbarWheelHooker* instance = nullptr;
 
 signals:
-    void tabWheelEvent(const QString& exePath, bool isUp, int windows); // å‚æ•°ä¸ºå¼•ç”¨é—®é¢˜ä¹Ÿä¸å¤§ï¼Œè²Œä¼¼ä¼šè‡ªåŠ¨æ‹·è´ï¼ˆQt::QueuedConnectionæƒ…å†µä¸‹ï¼‰
-    void leaveTaskbar(); // é¼ æ ‡ç¦»å¼€taskbar
+    void tabWheelEvent(const QString& exePath, bool isUp, int windows); // ²ÎÊıÎªÒıÓÃÎÊÌâÒ²²»´ó£¬Ã²ËÆ»á×Ô¶¯¿½±´£¨Qt::QueuedConnectionÇé¿öÏÂ£©
+    void leaveTaskbar(); // Êó±êÀë¿ªtaskbar
+    void hotCornerEvent();
 
 private:
     HHOOK h_mouse = nullptr;
 };
 
 
-#endif //WIN_SWITCHER_TASKBARWHEELHOOKER_H
+#endif // ALTTAB_WINDOWS_TASKBARWHEELHOOKER_H
+
+

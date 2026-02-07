@@ -1,5 +1,5 @@
-﻿#ifndef WIN_SWITCHER_UPDATEDIALOG_H
-#define WIN_SWITCHER_UPDATEDIALOG_H
+#ifndef ALTTAB_WINDOWS_UPDATEDIALOG_H
+#define ALTTAB_WINDOWS_UPDATEDIALOG_H
 
 #include <QApplication>
 #include <QDialog>
@@ -40,7 +40,7 @@ private:
     Ui::UpdateDialog* ui;
     QNetworkAccessManager manager;
     static constexpr auto Owner = "MrBeanCpp";
-    static constexpr auto Repo = "AltTaber";
+    static constexpr auto Repo = "alttab_windows";
     const QVersionNumber version = normalizeVersion(QApplication::applicationVersion());
 
     struct ReleaseInfo {
@@ -63,4 +63,6 @@ private:
 };
 
 
-#endif //WIN_SWITCHER_UPDATEDIALOG_H
+#endif // ALTTAB_WINDOWS_UPDATEDIALOG_H
+
+

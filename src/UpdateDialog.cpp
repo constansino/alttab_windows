@@ -1,4 +1,4 @@
-ï»¿// You may need to build the project (run Qt uic code generator) to get "ui_UpdateDialog.h" resolved
+// You may need to build the project (run Qt uic code generator) to get "ui_UpdateDialog.h" resolved
 
 #include "UpdateDialog.h"
 #include <QCommandLineParser>
@@ -15,7 +15,7 @@
 UpdateDialog::UpdateDialog(QWidget* parent) : QDialog(parent), ui(new Ui::UpdateDialog) {
     ui->setupUi(this);
     setWindowFlag(Qt::WindowStaysOnTopHint);
-    setWindowTitle("AltTaber Updater[GitHub]");
+    setWindowTitle("alttab_windows Updater[GitHub]");
     qDebug() << QSslSocket::sslLibraryBuildVersionString() << QSslSocket::supportsSsl();
 
     manager.setTransferTimeout(10000); // 10s -> Operation canceled
@@ -35,9 +35,9 @@ UpdateDialog::UpdateDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Update
             if (QZipReader reader(filePath); reader.isReadable() &&
                                              reader.extractAll(relDir.absolutePath()) &&
                                              relDir.exists()) {
-                // extractAll å¤±è´¥ è²Œä¼¼ä¹Ÿä¼šè¿”å›true (& status() == 0 NoError)ï¼Ÿç¦»è°±
+                // extractAll Ê§°Ü Ã²ËÆÒ²»á·µ»Øtrue (& status() == 0 NoError)£¿ÀëÆ×
                 auto entryInfos = relDir.entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot);
-                if (entryInfos.size() == 1 && entryInfos.first().isDir()) { // æœ‰å¯èƒ½è¿˜å¥—äº†ä¸€å±‚æ ¹ç›®å½•
+                if (entryInfos.size() == 1 && entryInfos.first().isDir()) { // ÓĞ¿ÉÄÜ»¹Ì×ÁËÒ»²ã¸ùÄ¿Â¼
                     relDir.cd(entryInfos.first().fileName());
                 }
                 qDebug() << "release extract dir:" << relDir.absolutePath();
@@ -46,12 +46,12 @@ UpdateDialog::UpdateDialog(QWidget* parent) : QDialog(parent), ui(new Ui::Update
                 qApp->quit(); //
             } else {
                 qWarning() << "Extract failed" << reader.status();
-                ui->textBrowser->setMarkdown("## Extract failedâ");
+                ui->textBrowser->setMarkdown("## Extract failed?");
             }
         } else {
-            // å…¶ä»–æ ¼å¼å¯èƒ½éœ€è¦7z.exeæ”¯æŒ
+            // ÆäËû¸ñÊ½¿ÉÄÜĞèÒª7z.exeÖ§³Ö
             qWarning() << "Unsupported file type" << filePath;
-            ui->textBrowser->setMarkdown("## Unsupported file typeâ");
+            ui->textBrowser->setMarkdown("## Unsupported file type?");
         }
     });
 }
@@ -70,7 +70,7 @@ void UpdateDialog::fetchGithubReleaseInfo() {
         reply->deleteLater();
         if (reply->error() != QNetworkReply::NoError) {
             qWarning() << "Failed to fetch update info" << reply->errorString();
-            ui->textBrowser->setMarkdown("## Failed to fetch update infoâ\n" + reply->errorString());
+            ui->textBrowser->setMarkdown("## Failed to fetch update info?\n" + reply->errorString());
             sysTray.showMessage("Failed to fetch update info", reply->errorString());
             return;
         }
@@ -90,8 +90,8 @@ void UpdateDialog::fetchGithubReleaseInfo() {
         ui->label_ver->setText(QString("Current Version: v%1").arg(version.toString()));
 
         bool needUpdate = relInfo.ver > version;
-        // å¦‚æœè¦æ”¯æŒç½‘ç»œå›¾ç‰‡ï¼Œå¿…é¡»é‡å†™`QTextBrowser::loadResource`ï¼Œé»˜è®¤æ˜¯ä½œä¸ºæœ¬åœ°æ–‡ä»¶å¤„ç†
-        ui->textBrowser->setMarkdown(needUpdate ? relInfo.description : "# âœ…Everything is up-to-date");
+        // Èç¹ûÒªÖ§³ÖÍøÂçÍ¼Æ¬£¬±ØĞëÖØĞ´`QTextBrowser::loadResource`£¬Ä¬ÈÏÊÇ×÷Îª±¾µØÎÄ¼ş´¦Àí
+        ui->textBrowser->setMarkdown(needUpdate ? relInfo.description : "# ?Everything is up-to-date");
         ui->btn_update->setEnabled(needUpdate);
     });
 }
@@ -125,15 +125,15 @@ void UpdateDialog::download(const QString& url, const QString& savePath) {
     connect(reply, &QNetworkReply::finished, this, [this, reply] {
         reply->deleteLater();
         downloadStatus.reply = nullptr;
-        downloadStatus.file.close(); // closeæ‰åˆ·æ–°ç¼“å†²åŒºï¼Œå†™å…¥ç£ç›˜ï¼Œæ‰€ä»¥å¿…é¡»åœ¨è§£å‹ä¹‹å‰ï¼ä¸ç„¶è§£å‹æ¦‚ç‡æ€§å¤±è´¥...(QZip: EndOfDirectory not found)
+        downloadStatus.file.close(); // close²ÅË¢ĞÂ»º³åÇø£¬Ğ´Èë´ÅÅÌ£¬ËùÒÔ±ØĞëÔÚ½âÑ¹Ö®Ç°£¡²»È»½âÑ¹¸ÅÂÊĞÔÊ§°Ü...(QZip: EndOfDirectory not found)
         ui->progressBar->hide();
         ui->btn_update->setEnabled(true);
         if (!downloadStatus.success || reply->error() != QNetworkReply::NoError) {
             qWarning() << "Download failed" << reply->errorString();
-            ui->textBrowser->setMarkdown("## Download failedâ [" + reply->url().host() + "]\n" + reply->errorString());
+            ui->textBrowser->setMarkdown("## Download failed? [" + reply->url().host() + "]\n" + reply->errorString());
             sysTray.showMessage("Download failed", reply->errorString());
         } else {
-            ui->textBrowser->setMarkdown("## Download successâœ…");
+            ui->textBrowser->setMarkdown("## Download success?");
             sysTray.showMessage("Download Status", "Success!");
             emit downloadSucceed(downloadStatus.file.fileName());
         }
@@ -145,7 +145,7 @@ QString UpdateDialog::writeBat(const QString& sourceDir, const QString& targetDi
     if (file.open(QFile::WriteOnly | QFile::Text)) {
         QTextStream text(&file);
         text << "@timeout /t 1 /NOBREAK" << '\n';
-        text << "@cd /d %~dp0" << '\n'; //åˆ‡æ¢åˆ°batç›®å½•ï¼Œå¦åˆ™ä¸ºqtçš„exeç›®å½•
+        text << "@cd /d %~dp0" << '\n'; //ÇĞ»»µ½batÄ¿Â¼£¬·ñÔòÎªqtµÄexeÄ¿Â¼
         text << "@echo ##Copying files, please wait......\n";
         text << QString("xcopy \"%1\" \"%2\" /E /H /Y\n").arg(QDir::toNativeSeparators(sourceDir), QDir::toNativeSeparators(targetDir));
         text << "@echo -------------------------------------------------------\n";
@@ -164,7 +164,7 @@ QString UpdateDialog::writeBat(const QString& sourceDir, const QString& targetDi
 QVersionNumber UpdateDialog::normalizeVersion(const QString& ver) {
     auto v = ver;
     if (v.startsWith('v')) v.removeFirst();
-    while (v.count('.') > 2 && v.endsWith(".0")) // ç§»é™¤å¤šä½™çš„0ï¼Œä¿ç•™3ä½
+    while (v.count('.') > 2 && v.endsWith(".0")) // ÒÆ³ı¶àÓàµÄ0£¬±£Áô3Î»
         v.chop(2);
     return QVersionNumber::fromString(v);
 }
@@ -176,13 +176,13 @@ QString UpdateDialog::toLocalTime(const QString& isoTime) {
 
 void UpdateDialog::verifyUpdate(const QCoreApplication& app) {
     QCommandLineParser parser;
-    // ç”¨äºéªŒè¯æ›´æ–°æˆåŠŸä¸å¦ï¼Œåº”ç”±æ›´æ–°ç¨‹åº(.bat)è°ƒç”¨ï¼Œç”¨æ³•ï¼š`--verify-update 1.0->2.0`
+    // ÓÃÓÚÑéÖ¤¸üĞÂ³É¹¦Óë·ñ£¬Ó¦ÓÉ¸üĞÂ³ÌĞò(.bat)µ÷ÓÃ£¬ÓÃ·¨£º`--verify-update 1.0->2.0`
     QCommandLineOption versionUpdate("verify-update", "verify update, e.g. `1.0->2.0`", "versionChange");
     // the `valueName` needs to be set if the option expects a value.
     parser.addOption(versionUpdate);
     parser.process(app);
     if (parser.isSet(versionUpdate)) {
-        // Qt å¥½åƒä¸æ”¯æŒ`-v 1.0.1 1.0.2`è¿™æ ·å¤švaluesï¼Œåªèƒ½`-v 1.0.1 -v 1.0.2`
+        // Qt ºÃÏñ²»Ö§³Ö`-v 1.0.1 1.0.2`ÕâÑù¶àvalues£¬Ö»ÄÜ`-v 1.0.1 -v 1.0.2`
         auto versions = parser.value(versionUpdate).split("->");
         if (versions.size() == 2) {
             auto vFrom = QVersionNumber::fromString(versions.first());
@@ -209,3 +209,4 @@ void UpdateDialog::showEvent(QShowEvent*) {
     if (!downloadStatus.reply)
         fetchGithubReleaseInfo();
 }
+

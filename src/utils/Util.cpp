@@ -12,7 +12,7 @@
 #include <QDomDocument>
 #include <QPainter>
 #include <propkey.h>
-#include <atlbase.h>
+#include <wrl/client.h> // Replaced atlbase.h
 #include <minappmodel.h>
 #include <tlhelp32.h>
 #include <shlobj_core.h>
@@ -179,15 +179,17 @@ namespace Util {
     QString getFileDescription(const QString& path) {
         QString desc = QFileInfo(path).completeBaseName(); // fallback to base name
 
-        // 使用 CComPtr 自动释放 IShellItem2 接口
-        CComPtr<IShellItem2> pItem;
+        // Using WRL ComPtr
+        Microsoft::WRL::ComPtr<IShellItem2> pItem;
         HRESULT hr = SHCreateItemFromParsingName(path.toStdWString().c_str(), nullptr, IID_PPV_ARGS(&pItem));
         if (SUCCEEDED(hr)) {
-            // 使用 CComHeapPtr 自动释放字符串（调用 CoTaskMemFree）
-            CComHeapPtr<WCHAR> pValue;
+            // Manually handle CoTaskMemFree instead of CComHeapPtr
+            LPWSTR pValue = nullptr;
             hr = pItem->GetString(PKEY_FileDescription, &pValue);
-            if (SUCCEEDED(hr))
+            if (SUCCEEDED(hr)) {
                 desc = QString::fromWCharArray(pValue);
+                CoTaskMemFree(pValue);
+            }
             else
                 qWarning() << "No FileDescription, fallback to file name:" << desc;
         } else {
@@ -237,14 +239,25 @@ namespace Util {
     void bringWindowToTop(HWND hwnd, HWND hWndInsertAfter) {
         if (isTopMost(hwnd)) return;
         LockSetForegroundWindow(LSFW_LOCK); // avoid focus stolen
-        if (IsIconic(hwnd))
+        
+        // Check if iconic (minimized)
+        bool wasIconic = IsIconic(hwnd);
+        if (wasIconic) {
             ShowWindow(hwnd, SW_SHOWNOACTIVATE);
+        } else if (!IsWindowVisible(hwnd)) {
+            ShowWindow(hwnd, SW_SHOWNA);
+        }
+
         // HWND_TOP not works well
         // ref: https://stackoverflow.com/questions/5257977/how-to-bring-other-app-window-to-front-without-activating-it
         // 给一个基准HWND相较于HWND_TOPMOST更稳定，防止hwnd抢占焦点或倒反天罡遮挡，同时增加Z序调整成功率
-        // such as: 特别是Windows Terminal，不仅抢焦点、遮挡，有时候还toTop失败; 不过 hWndInsertAfter == this->hWnd()就好多了
-        SetWindowPos(hwnd, hWndInsertAfter, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
-        // 如果 `hWndInsertAfter` 是TOPMOST，那么hwnd也会变成TOPMOST
+        BOOL ok = SetWindowPos(hwnd, hWndInsertAfter, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+        if (!ok) {
+            qDebug() << "MouseWarp: SetWindowPos failed for" << hwnd << "Error:" << GetLastError();
+            // Try an even more aggressive approach if failed
+            SetWindowPos(hwnd, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
+        
         SetWindowPos(hwnd, HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         LockSetForegroundWindow(LSFW_UNLOCK);
     }
@@ -270,18 +283,26 @@ namespace Util {
         };
         LONG exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
         QString className;
+        RECT rect = {0};
 
         if ((skipVisibleCheck || IsWindowVisible(hwnd))
             && !isWindowCloaked(hwnd)
             // 窗口显示在任务栏的基本规则：https://devblogs.microsoft.com/oldnewthing/20031229-00/?p=41283
             && (!GetWindow(hwnd, GW_OWNER) || exStyle & WS_EX_APPWINDOW) // OmApSvcBroker, QQ主面板（意料之外）; 保留：系统属性（Path）
             && (exStyle & WS_EX_TOOLWINDOW) == 0 // 非工具窗口，但其实有些工具窗口没有这个这个属性
-            //            && (exStyle & WS_EX_TOPMOST) == 0 // 非置顶窗口
             && GetWindowTextLength(hwnd) > 0
             && (className = getClassName(hwnd)).size() > 0 // cache
             && !BlackList_ClassName.contains(className)
-            && !className.startsWith("imestatuspop_classname{") // 输入法（的推销弹窗）https://s3.bmp.ovh/imgs/2024/12/23/bb136fde101a41ce.png
+            && !className.startsWith("imestatuspop_classname{")
         ) {
+            // Check physical size and position
+            if (GetWindowRect(hwnd, &rect)) {
+                int width = rect.right - rect.left;
+                int height = rect.bottom - rect.top;
+                // Filter out 0-size or very small windows (phantom windows)
+                if (width < 10 || height < 10) return false;
+            }
+
             auto path = getWindowProcessPath(hwnd); // 耗时操作，减少次数
             if (!BlackList_ExePath.contains(path) && !BlackList_FileName.contains(QFileInfo(path).fileName()))
                 return true;
@@ -478,7 +499,7 @@ namespace Util {
 
         // 其实`GetPackagePathByFullName`也可以，就是想随便用一下`WinRT` Just
         using namespace winrt;
-        using namespace Windows::Management::Deployment;
+        using namespace winrt::Windows::Management::Deployment;
         // init_apartment(apartment_type::single_threaded); // Qt 内部已经初始化了
 
         try {
@@ -593,5 +614,68 @@ namespace Util {
     bool isTaskbarWindow(HWND hwnd) {
         auto className = Util::getClassName(hwnd);
         return className == QStringLiteral("Shell_TrayWnd") || className == QStringLiteral("Shell_SecondaryTrayWnd"); // 副屏
+    }
+
+    void closeWindow(HWND hwnd) {
+        if (!hwnd) return;
+        PostMessage(hwnd, WM_CLOSE, 0, 0);
+    }
+
+    void killProcess(HWND hwnd) {
+        if (!hwnd) return;
+        DWORD pid;
+        GetWindowThreadProcessId(hwnd, &pid);
+        HANDLE hProcess = OpenProcess(PROCESS_TERMINATE, FALSE, pid);
+        if (hProcess) {
+            TerminateProcess(hProcess, 0);
+            CloseHandle(hProcess);
+        }
+    }
+
+    struct WakeUpParam {
+        QString targetExeName;
+        bool found;
+    };
+
+    bool wakeUpProcessWindow(const QString& exePath) {
+        QString exeName = QFileInfo(exePath).fileName();
+        WakeUpParam param = {exeName, false};
+
+        // 遍历系统中所有顶层窗口
+        EnumWindows([](HWND hwnd, LPARAM lParam) -> BOOL {
+            auto* p = reinterpret_cast<WakeUpParam*>(lParam);
+            
+            // 获取该窗口所属进程的路径
+            DWORD pid;
+            GetWindowThreadProcessId(hwnd, &pid);
+            QString path = getProcessPath(pid);
+            QString name = QFileInfo(path).fileName();
+
+            if (name.compare(p->targetExeName, Qt::CaseInsensitive) == 0) {
+                // 找到了属于该应用的窗口
+                // 排除掉那些完全没有标题的后台消息窗口
+                if (GetWindowTextLength(hwnd) > 0) {
+                    qDebug() << "WakeUp: Found candidate window for" << p->targetExeName << ":" << hwnd;
+                    
+                    // 尝试多种手段唤醒
+                    // 1. 强制显示并恢复
+                    ShowWindow(hwnd, SW_SHOW);
+                    ShowWindow(hwnd, SW_RESTORE);
+                    
+                    // 2. 发送标准恢复指令 (SC_RESTORE)
+                    PostMessage(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0);
+                    
+                    // 3. 强行拉到前台
+                    SetForegroundWindow(hwnd);
+                    
+                    p->found = true;
+                    // 对于某些应用（如QQ），可能存在多个窗口（主面板、联系人、聊天）
+                    // 我们可以继续找，或者在这里停下。先尝试继续找，把所有窗口都弹出来。
+                }
+            }
+            return TRUE; // 继续枚举所有窗口，确保多进程/多窗口都能被唤醒
+        }, reinterpret_cast<LPARAM>(&param));
+
+        return param.found;
     }
 } // Util

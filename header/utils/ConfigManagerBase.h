@@ -1,8 +1,10 @@
-ï»¿#ifndef WIN_SWITCHER_CONFIGMANAGERBASE_H
-#define WIN_SWITCHER_CONFIGMANAGERBASE_H
+#ifndef ALTTAB_WINDOWS_CONFIGMANAGERBASE_H
+#define ALTTAB_WINDOWS_CONFIGMANAGERBASE_H
 
 #include <QSettings>
 #include <QProcess>
+#include <QFile>
+#include <QDebug>
 
 class ConfigManagerBase : public QObject {
     Q_OBJECT
@@ -49,7 +51,7 @@ public:
         }
 
         qDebug() << "#Editing config file" << settings.fileName();
-        // QProcess åªèƒ½åŒæ—¶è¿žæŽ¥ä¸€ä¸ªè¿›ç¨‹
+        // QProcess Ö»ÄÜÍ¬Ê±Á¬½ÓÒ»¸ö½ø³Ì
         proc_editor.start("notepad", {settings.fileName()});
     }
 
@@ -67,4 +69,6 @@ signals:
 };
 
 
-#endif //WIN_SWITCHER_CONFIGMANAGERBASE_H
+#endif // ALTTAB_WINDOWS_CONFIGMANAGERBASE_H
+
+

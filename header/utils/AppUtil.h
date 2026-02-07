@@ -1,5 +1,5 @@
-﻿#ifndef WIN_SWITCHER_APPUTIL_H
-#define WIN_SWITCHER_APPUTIL_H
+#ifndef ALTTAB_WINDOWS_APPUTIL_H
+#define ALTTAB_WINDOWS_APPUTIL_H
 
 #include <Windows.h>
 #include <QIcon>
@@ -17,4 +17,6 @@ namespace AppUtil {
 }
 
 
-#endif //WIN_SWITCHER_APPUTIL_H
+#endif // ALTTAB_WINDOWS_APPUTIL_H
+
+

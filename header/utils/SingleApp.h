@@ -1,5 +1,5 @@
-ï»¿#ifndef WIN_SWITCHER_SINGLEAPP_H
-#define WIN_SWITCHER_SINGLEAPP_H
+#ifndef ALTTAB_WINDOWS_SINGLEAPP_H
+#define ALTTAB_WINDOWS_SINGLEAPP_H
 
 #include <QSharedMemory>
 #include <QDebug>
@@ -11,9 +11,9 @@ private:
 public:
     explicit SingleApp(const QString& key) : sharedMemory(key) {
         // region Nothing: Just record for future
-        // ç¡®ä¿æ¸…ç†å¯èƒ½å­˜åœ¨çš„æ®‹ç•™å…±äº«å†…å­˜ for linux:
-        // linux åº”ç”¨ç¨‹åºå´©æºƒå,å…±äº«å†…å­˜æ®µä¸ä¼šè‡ªåŠ¨é”€æ¯,åˆ™è¯¥ç¨‹åºå†æ¬¡è¿è¡Œä¼šå‡ºé—®é¢˜
-        // Windows ä¼šè‡ªåŠ¨æ¸…ç†
+        // È·±£ÇåÀí¿ÉÄÜ´æÔÚµÄ²ĞÁô¹²ÏíÄÚ´æ for linux:
+        // linux Ó¦ÓÃ³ÌĞò±ÀÀ£ºó,¹²ÏíÄÚ´æ¶Î²»»á×Ô¶¯Ïú»Ù,Ôò¸Ã³ÌĞòÔÙ´ÎÔËĞĞ»á³öÎÊÌâ
+        // Windows »á×Ô¶¯ÇåÀí
         // if (sharedMemory.attach())
         //    sharedMemory.detach();
         // endregion https://blog.csdn.net/bloke_come/article/details/106319236
@@ -31,9 +31,11 @@ public:
             return false;
         } else {
             qWarning() << "fatal: SharedMemory create failed" << sharedMemory.errorString();
-            return true; // ä¿å®ˆèµ·è§ï¼Œè®¤ä¸ºå·²æœ‰å®ä¾‹åœ¨è¿è¡Œ
+            return true; // ±£ÊØÆğ¼û£¬ÈÏÎªÒÑÓĞÊµÀıÔÚÔËĞĞ
         }
     }
 };
 
-#endif //WIN_SWITCHER_SINGLEAPP_H
+#endif // ALTTAB_WINDOWS_SINGLEAPP_H
+
+

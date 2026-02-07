@@ -1,16 +1,16 @@
-ï»¿#ifndef WIN_SWITCHER_CONFIGMANAGER_H
-#define WIN_SWITCHER_CONFIGMANAGER_H
+#ifndef ALTTAB_WINDOWS_CONFIGMANAGER_H
+#define ALTTAB_WINDOWS_CONFIGMANAGER_H
 
 #include <QSettings>
 #include <QApplication>
 #include "ConfigManagerBase.h"
 
-// æ³¨æ„ï¼šå¯¹äºŽå¤§é‡ä½¿ç”¨çš„ç±»ï¼Œheader-only æ¨¡å¼ä¼šå¯¼è‡´ç¼–è¯‘æ—¶é—´è¿‡é•¿
+// ×¢Òâ£º¶ÔÓÚ´óÁ¿Ê¹ÓÃµÄÀà£¬header-only Ä£Ê½»áµ¼ÖÂ±àÒëÊ±¼ä¹ý³¤
 #define cfg ConfigManager::instance()
 
 enum DisplayMonitor {
-    PrimaryMonitor, // 0 ä¸»æ˜¾ç¤ºå™¨
-    MouseMonitor, // 1 è·Ÿéšé¼ æ ‡
+    PrimaryMonitor, // 0 Ö÷ÏÔÊ¾Æ÷
+    MouseMonitor, // 1 ¸úËæÊó±ê
     EnumCount // Just for count
 };
 
@@ -41,9 +41,97 @@ public:
         set("DisplayMonitor", monitor);
     }
 
+    bool getHoldMode() {
+        return get("HoldMode", true).toBool();
+    }
+
+    void setHoldMode(bool on) {
+        set("HoldMode", on);
+    }
+
+    bool getMouseWarp() {
+        return get("MouseWarp", false).toBool();
+    }
+
+    void setMouseWarp(bool on) {
+        set("MouseWarp", on);
+    }
+
+    // Pinned Apps: ExeName -> Index (0-based)
+    QMap<QString, int> getPinnedApps() {
+        auto map = get("PinnedApps").toMap();
+        QMap<QString, int> result;
+        for (auto it = map.begin(); it != map.end(); ++it) {
+            result.insert(it.key(), it.value().toInt());
+        }
+        return result;
+    }
+
+    void setPinnedApp(const QString& exeName, int index) {
+        auto map = get("PinnedApps").toMap();
+        if (index < 0) map.remove(exeName);
+        else map.insert(exeName, index);
+        set("PinnedApps", map);
+    }
+
+    // Shortcuts: ExeName -> Key (e.g. "F1", "Ctrl+1")
+    QMap<QString, QString> getAppShortcuts() {
+        auto map = get("AppShortcuts").toMap();
+        QMap<QString, QString> result;
+        for (auto it = map.begin(); it != map.end(); ++it) {
+            result.insert(it.key(), it.value().toString());
+        }
+        return result;
+    }
+
+    void setAppShortcut(const QString& exeName, const QString& key) {
+        auto map = get("AppShortcuts").toMap();
+        if (key.isEmpty()) map.remove(exeName);
+        else map.insert(exeName, key);
+        set("AppShortcuts", map);
+    }
+
+    // Global Shortcuts: ExeName -> Bool
+    bool isShortcutGlobal(const QString& exeName) {
+        auto map = get("GlobalShortcuts").toMap();
+        return map.value(exeName, false).toBool();
+    }
+
+    void setShortcutGlobal(const QString& exeName, bool global) {
+        auto map = get("GlobalShortcuts").toMap();
+        map.insert(exeName, global);
+        set("GlobalShortcuts", map);
+    }
+
+    enum HotCornerPos {
+        None = 0,
+        TopLeft,
+        TopRight,
+        BottomLeft,
+        BottomRight
+    };
+
+    HotCornerPos getHotCornerPosition() {
+        return static_cast<HotCornerPos>(get("HotCornerPosition", 0).toInt());
+    }
+
+    void setHotCornerPosition(HotCornerPos pos) {
+        set("HotCornerPosition", static_cast<int>(pos));
+    }
+
+    QString getHotCornerApp() {
+        return get("HotCornerApp", "").toString();
+    }
+
+    void setHotCornerApp(const QString& exeName) {
+        set("HotCornerApp", exeName);
+    }
+
 private:
     explicit ConfigManager(const QString& filename) : ConfigManagerBase(filename) {}
 };
 
 
-#endif //WIN_SWITCHER_CONFIGMANAGER_H
+#endif // ALTTAB_WINDOWS_CONFIGMANAGER_H
+
+

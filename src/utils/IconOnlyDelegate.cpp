@@ -23,7 +23,7 @@ void IconOnlyDelegate::paint(QPainter* painter, const QStyleOptionViewItem& opti
 
     // draw badge
     auto num = qvariant_cast<WindowGroup>(index.data(Qt::UserRole)).windows.size();
-    if (num > 1) {
+    if (num >= 1) {
         auto text = QString::number(num);
         const auto extraWidth = 8 * (text.size() - 1);
         constexpr auto R = 12;

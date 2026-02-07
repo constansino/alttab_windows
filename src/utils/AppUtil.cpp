@@ -11,7 +11,7 @@
 #include <QDomDocument>
 #include <QPainter>
 #include <propkey.h>
-#include <atlbase.h>
+#include <wrl/client.h> // Replaced atlbase.h
 #include <QFileInfo>
 
 namespace AppUtil {
@@ -277,7 +277,7 @@ namespace AppUtil {
                     } else
                         qWarning() << "Failed to get display name or relPath.";
 
-                    CComPtr<IPropertyStore> store;
+                    Microsoft::WRL::ComPtr<IPropertyStore> store;
                     // 可以GetCount枚举所有属性
                     hr = pChildItem->BindToHandler(nullptr, BHID_PropertyStore, IID_PPV_ARGS(&store));
                     QString exePath;

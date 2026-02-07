@@ -1,22 +1,22 @@
-ï»¿#ifndef WIN_SWITCHER_COMINITIALIZER_H
-#define WIN_SWITCHER_COMINITIALIZER_H
+#ifndef ALTTAB_WINDOWS_COMINITIALIZER_H
+#define ALTTAB_WINDOWS_COMINITIALIZER_H
 
 #include <windows.h>
 #include <QtDebug>
 
 /** @warning
  *
- * ç”±äºŽSTAå¥—ä»¶æ‰€æœ‰çš„COMç»„ä»¶ä»£ç éƒ½è¿è¡ŒäºŽä¸»STAï¼ˆç¬¬ä¸€ä¸ªè°ƒç”¨CoInitializeå‡½æ•°çš„çº¿ç¨‹ï¼‰,
- * å¦‚æžœä½ çš„ä¸»çº¿ç¨‹æ²¡æœ‰è°ƒç”¨CoInitializeï¼Œé‚£ä¹ˆç¬¬ä¸€ä¸ªè°ƒç”¨CoInitializeçš„å·¥ä½œçº¿ç¨‹å°±ä¼šæˆä¸ºä¸»STAï¼Œ
- * è€Œå·¥ä½œçº¿ç¨‹éšæ—¶å¯èƒ½ä¸­æ­¢ï¼Œè¿™ç§æƒ…å†µä¸‹ï¼Œä¸€æ—¦å·¥ä½œçº¿ç¨‹ä¸­æ­¢ä¸»STAä¹Ÿå°±ä¸å¤å­˜åœ¨äº†ï¼Œ
- * å› æ­¤ä½ éœ€è¦åœ¨ä¸»çº¿ç¨‹ä¸­è°ƒç”¨CoInitializeåˆå§‹åŒ–ä¸»STAï¼Œå³ä½¿ä¸»çº¿ç¨‹ä¸ä½¿ç”¨ä»»ä½•COMç»„ä»¶ã€‚
+ * ÓÉÓÚSTAÌ×¼þËùÓÐµÄCOM×é¼þ´úÂë¶¼ÔËÐÐÓÚÖ÷STA£¨µÚÒ»¸öµ÷ÓÃCoInitializeº¯ÊýµÄÏß³Ì£©,
+ * Èç¹ûÄãµÄÖ÷Ïß³ÌÃ»ÓÐµ÷ÓÃCoInitialize£¬ÄÇÃ´µÚÒ»¸öµ÷ÓÃCoInitializeµÄ¹¤×÷Ïß³Ì¾Í»á³ÉÎªÖ÷STA£¬
+ * ¶ø¹¤×÷Ïß³ÌËæÊ±¿ÉÄÜÖÐÖ¹£¬ÕâÖÖÇé¿öÏÂ£¬Ò»µ©¹¤×÷Ïß³ÌÖÐÖ¹Ö÷STAÒ²¾Í²»¸´´æÔÚÁË£¬
+ * Òò´ËÄãÐèÒªÔÚÖ÷Ïß³ÌÖÐµ÷ÓÃCoInitialize³õÊ¼»¯Ö÷STA£¬¼´Ê¹Ö÷Ïß³Ì²»Ê¹ÓÃÈÎºÎCOM×é¼þ¡£
  * <br>-- https://www.cnblogs.com/manors/archive/2010/05/17/COM_Initialize_STA_MTA.html<br>
  *
- * åº”ç”¨ç¨‹åºä¸­ç¬¬ä¸€ä¸ªä½¿ç”¨ 0 è°ƒç”¨CoInitialize ï¼ˆæˆ–ä½¿ç”¨ COINIT_APARTMENTTHREADED è°ƒç”¨CoInitializeEx ï¼‰çš„çº¿ç¨‹å¿…é¡»æ˜¯æœ€åŽä¸€ä¸ªè°ƒç”¨CoUninitializeçš„çº¿ç¨‹ã€‚
- * å¦åˆ™ï¼ŒåŽç»­åœ¨ STA ä¸Šè°ƒç”¨CoInitializeå°†å¤±è´¥ï¼Œå¹¶ä¸”åº”ç”¨ç¨‹åºå°†æ— æ³•å·¥ä½œã€‚
+ * Ó¦ÓÃ³ÌÐòÖÐµÚÒ»¸öÊ¹ÓÃ 0 µ÷ÓÃCoInitialize £¨»òÊ¹ÓÃ COINIT_APARTMENTTHREADED µ÷ÓÃCoInitializeEx £©µÄÏß³Ì±ØÐëÊÇ×îºóÒ»¸öµ÷ÓÃCoUninitializeµÄÏß³Ì¡£
+ * ·ñÔò£¬ºóÐøÔÚ STA ÉÏµ÷ÓÃCoInitialize½«Ê§°Ü£¬²¢ÇÒÓ¦ÓÃ³ÌÐò½«ÎÞ·¨¹¤×÷¡£
  * <br>-- https://learn.microsoft.com/en-us/windows/win32/api/objbase/nf-objbase-coinitialize<br>
 */
-// æ¯ä¸ªçº¿ç¨‹éƒ½è¦å•ç‹¬åˆå§‹åŒ–COM
+// Ã¿¸öÏß³Ì¶¼Òªµ¥¶À³õÊ¼»¯COM
 class ComInitializer { // RAII
 public:
     ComInitializer() {
@@ -28,8 +28,8 @@ public:
     }
 
     ~ComInitializer() {
-        // è°ƒç”¨ CoInitializeEx çš„ç¬¬ä¸€ä¸ªçº¿ç¨‹å¿…é¡»æ˜¯è°ƒç”¨ CoUninitialize çš„æœ€åŽä¸€ä¸ªçº¿ç¨‹ã€‚ å¦åˆ™ï¼Œå¯¹ STA ä¸Šçš„ CoInitialize çš„åŽç»­è°ƒç”¨å°†å¤±è´¥ï¼Œåº”ç”¨ç¨‹åºå°†ä¸èµ·ä½œç”¨ã€‚
-        // æ¯æ¬¡æˆåŠŸè°ƒç”¨ CoInitialize æˆ– CoInitializeExï¼ˆåŒ…æ‹¬è¿”å›žS_FALSEï¼‰éƒ½å¿…é¡»é€šè¿‡å¯¹ CoUninitialize çš„ç›¸åº”è°ƒç”¨æ¥å¹³è¡¡
+        // µ÷ÓÃ CoInitializeEx µÄµÚÒ»¸öÏß³Ì±ØÐëÊÇµ÷ÓÃ CoUninitialize µÄ×îºóÒ»¸öÏß³Ì¡£ ·ñÔò£¬¶Ô STA ÉÏµÄ CoInitialize µÄºóÐøµ÷ÓÃ½«Ê§°Ü£¬Ó¦ÓÃ³ÌÐò½«²»Æð×÷ÓÃ¡£
+        // Ã¿´Î³É¹¦µ÷ÓÃ CoInitialize »ò CoInitializeEx£¨°üÀ¨·µ»ØS_FALSE£©¶¼±ØÐëÍ¨¹ý¶Ô CoUninitialize µÄÏàÓ¦µ÷ÓÃÀ´Æ½ºâ
         if (SUCCEEDED(hr)) {
             CoUninitialize();
             qInfo() << "COM uninitialized.";
@@ -41,4 +41,6 @@ private:
 };
 
 
-#endif //WIN_SWITCHER_COMINITIALIZER_H
+#endif // ALTTAB_WINDOWS_COMINITIALIZER_H
+
+

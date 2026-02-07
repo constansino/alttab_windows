@@ -1,5 +1,5 @@
-ï»¿#ifndef WIN_SWITCHER_STARTUP_H
-#define WIN_SWITCHER_STARTUP_H
+#ifndef ALTTAB_WINDOWS_STARTUP_H
+#define ALTTAB_WINDOWS_STARTUP_H
 
 #include <QString>
 #include <QSettings>
@@ -9,7 +9,7 @@
 #include <QMessageBox>
 #include <shlobj_core.h>
 
-// ScheduledTask.h å¯é€‰ï¼Œä½œä¸ºä¸€ä¸ªæ’ä»¶ï¼Œç”¨ä»¥æ”¯æŒä»¥[ç®¡ç†å‘˜æƒé™]è‡ªå¯åŠ¨
+// ScheduledTask.h ¿ÉÑ¡£¬×÷ÎªÒ»¸ö²å¼ş£¬ÓÃÒÔÖ§³ÖÒÔ[¹ÜÀíÔ±È¨ÏŞ]×ÔÆô¶¯
 #if __has_include("ScheduledTask.h")
 # define HAS_SCHTASK
 # include "ScheduledTask.h"
@@ -24,14 +24,14 @@ public:
 
     static void on() {
 #ifdef HAS_SCHTASK
-        // MS doc: æ­¤å‡½æ•°æ˜¯ CheckTokenMembership çš„åŒ…è£…å™¨, å»ºè®®ç›´æ¥è°ƒç”¨è¯¥å‡½æ•°æ¥ç¡®å®šç®¡ç†å‘˜ç»„çŠ¶æ€; è€Œä¸æ˜¯è°ƒç”¨ IsUserAnAdmin
+        // MS doc: ´Ëº¯ÊıÊÇ CheckTokenMembership µÄ°ü×°Æ÷, ½¨ÒéÖ±½Óµ÷ÓÃ¸Ãº¯ÊıÀ´È·¶¨¹ÜÀíÔ±×é×´Ì¬; ¶ø²»ÊÇµ÷ÓÃ IsUserAnAdmin
         if (IsUserAnAdmin()) {
             off_reg();
             if (!ScheduledTask::createTask(SCHTASK_NAME))
                 QMessageBox::warning(nullptr, "Failed to create ScheduledTask", "maybe check log?(if any)");
-            // è¿™é‡Œä½¿ç”¨`QMessageBox`è€Œé`sysTray.showMessage`ï¼Œæ˜¯ä¸ºäº†é¿å…å¾ªç¯ä¾èµ– & ä¿æŒStartupç‹¬ç«‹æ€§
+            // ÕâÀïÊ¹ÓÃ`QMessageBox`¶ø·Ç`sysTray.showMessage`£¬ÊÇÎªÁË±ÜÃâÑ­»·ÒÀÀµ & ±£³ÖStartup¶ÀÁ¢ĞÔ
         } else {
-            // ä½†æ˜¯ä¸€èˆ¬è®¤ä¸º reg || schtasks æœ‰ä¸€ä¸ªå­˜åœ¨å°±æ˜¯è‡ªå¯åŠ¨äº†ï¼Œæ­¤æ—¶ä¸ä¼šè°ƒç”¨è¯¥å‡½æ•°ï¼Œä¹Ÿä¸ä¼šè¿›å…¥è¿™ä¸ªif
+            // µ«ÊÇÒ»°ãÈÏÎª reg || schtasks ÓĞÒ»¸ö´æÔÚ¾ÍÊÇ×ÔÆô¶¯ÁË£¬´ËÊ±²»»áµ÷ÓÃ¸Ãº¯Êı£¬Ò²²»»á½øÈëÕâ¸öif
             if (ScheduledTask::queryTask(SCHTASK_NAME)) { // no admin, can't delete
                 QMessageBox::warning(nullptr, "Conflict: schtask vs reg",
                                      "ScheduledTask exists, but no privilege to delete. Please run as Administrator & do it again.");
@@ -100,13 +100,15 @@ private:
     }
 
 private:
-    // HKEY_CURRENT_USER ä»…ä»…å¯¹å½“å‰ç”¨æˆ·æœ‰æ•ˆï¼Œä½†ä¸éœ€è¦ç®¡ç†å‘˜æƒé™
+    // HKEY_CURRENT_USER ½ö½ö¶Ôµ±Ç°ÓÃ»§ÓĞĞ§£¬µ«²»ĞèÒª¹ÜÀíÔ±È¨ÏŞ
     inline static const auto REG_AUTORUN = R"(HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Run)";
-    // æ ‡è¯†ç¬¦ï¼Œä¸èƒ½é‡å¤
-    inline static const auto REG_APP_NAME = "AltTaber.MrBeanCpp";
+    // ±êÊ¶·û£¬²»ÄÜÖØ¸´
+    inline static const auto REG_APP_NAME = "alttab_windows.MrBeanCpp";
 #ifdef HAS_SCHTASK
-    inline static const auto SCHTASK_NAME = "AltTaber Startup";
+    inline static const auto SCHTASK_NAME = "alttab_windows Startup";
 #endif
 };
 
-#endif //WIN_SWITCHER_STARTUP_H
+#endif // ALTTAB_WINDOWS_STARTUP_H
+
+

@@ -4,6 +4,7 @@
 #include "utils/AppUtil.h"
 #include "utils/Util.h"
 #include <QTime>
+#include "utils/ConfigManager.h"
 
 LRESULT mouseProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode == HC_ACTION && wParam == WM_MOUSEWHEEL) {

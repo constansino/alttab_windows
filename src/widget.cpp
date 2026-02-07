@@ -1,4 +1,4 @@
-﻿#include "../header/widget.h"
+#include "../header/widget.h"
 #include "ui_Widget.h"
 #include "utils/Util.h"
 #include <QDebug>
@@ -13,6 +13,14 @@
 #include <QWheelEvent>
 #include <QTimer>
 #include <QMetaEnum>
+#include <QKeySequenceEdit>
+#include <QDialogButtonBox>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QPushButton>
+#include <QCheckBox>
+#include <QMenu>
+#include <QApplication>
 #include "utils/SystemTray.h"
 #include "utils/ConfigManager.h"
 
@@ -21,12 +29,12 @@ Widget::Widget(QWidget* parent) : QWidget(parent), ui(new Ui::Widget) {
     lw = ui->listWidget;
     setWindowFlag(Qt::WindowStaysOnTopHint);
     setWindowFlag(Qt::FramelessWindowHint);
-    setAttribute(Qt::WA_TranslucentBackground); //设置窗口背景透明 !但是会造成show()时的闪烁 和 绘制延迟(?)
-    QtWin::taskbarDeleteTab(this); //删除任务栏图标
-    setWindowTitle("AltTaber");
+    setAttribute(Qt::WA_TranslucentBackground); 
+    QtWin::taskbarDeleteTab(this);
+    setWindowTitle("alttab_windows");
 
-    Util::setWindowRoundCorner(this->hWnd()); // 设置窗口圆角
-    setWindowBlur(hWnd()); // 设置窗口模糊, 必须配合Qt::WA_TranslucentBackground
+    Util::setWindowRoundCorner(this->hWnd());
+    setWindowBlur(hWnd());
 
     setupLabelFont();
 
@@ -39,220 +47,223 @@ Widget::Widget(QWidget* parent) : QWidget(parent), ui(new Ui::Widget) {
     lw->setIconSize({64, 64});
     lw->setGridSize({80, 80});
     lw->setFixedHeight(lw->gridSize().height());
-    lw->setUniformItemSizes(true); // optimization ?
+    lw->setUniformItemSizes(true);
+    lw->setMouseTracking(true); 
     lw->setStyleSheet(R"(
         QListWidget {
             background-color: transparent;
             border: none;
-            outline: none; /* 去除选中时的虚线框（在文字为空时，会形成闪电一样的标志 离谱） */
+            outline: none;
         }
     )");
-    // 就算Text为Null，也会占用空间，很难做到真正的IConMode，所以只能delegate自绘
-    // 本来为了去除图标选中变色样式，可以对Icon手动addPixmap(..., QIcon::Selected) or (& ~Qt::ItemIsSelectable)
-    // 但是采用delegate后，就没必要了
-    // will not take ownership of delegate
+    
     lw->setItemDelegate(new IconOnlyDelegate(lw));
     lw->installEventFilter(this);
+    lw->setContextMenuPolicy(Qt::CustomContextMenu);
 
     connect(lw, &QListWidget::currentItemChanged, this, [this](QListWidgetItem* cur, QListWidgetItem*) {
         if (cur) showLabelForItem(cur);
     });
+    
+    connect(lw, &QListWidget::itemEntered, this, [this](QListWidgetItem* item) {
+        if (item) showLabelForItem(item);
+    });
+
+    connect(lw, &QListWidget::customContextMenuRequested, this, [this](const QPoint& pos) {
+        auto item = lw->itemAt(pos);
+        if (!item) return;
+        auto group = item->data(Qt::UserRole).value<WindowGroup>();
+        HWND hwnd = group.windows.isEmpty() ? nullptr : group.windows.first().hwnd;
+        QString fileName = QFileInfo(group.exePath).fileName();
+
+        QMenu menu(this);
+        menu.setStyleSheet("QMenu{background-color:rgb(45,45,45); color:rgb(220,220,220); border:1px solid black;}"
+                           "QMenu:selected{background-color:rgb(60,60,60);}");
+
+        menu.addAction("Close Window", [hwnd] { Util::closeWindow(hwnd); });
+        menu.addAction("Quit App (Force)", [hwnd] { Util::killProcess(hwnd); });
+        menu.addSeparator();
+        
+        auto* pinMenu = menu.addMenu("Pin to Position");
+        auto pinnedApps = cfg.getPinnedApps();
+        int currentPin = pinnedApps.value(fileName, -1);
+        for (int i = 0; i < 10; ++i) {
+            auto* act = pinMenu->addAction(QString("Position %1").arg(i + 1));
+            act->setCheckable(true);
+            act->setChecked(currentPin == i);
+            connect(act, &QAction::triggered, [this, fileName, i, currentPin] {
+                if (currentPin == i) cfg.setPinnedApp(fileName, -1);
+                else cfg.setPinnedApp(fileName, i);
+                prepareListWidget();
+            });
+        }
+
+        menu.addSeparator();
+        auto shortcuts = cfg.getAppShortcuts();
+        QString currentKey = shortcuts.value(fileName);
+        QString shortcutText = currentKey.isEmpty() ? "Set Shortcut..." : QString("Shortcut: %1").arg(currentKey);
+        menu.addAction(shortcutText, [this, fileName, currentKey] {
+            QDialog dlg(this);
+            dlg.setWindowTitle("Set Shortcut: " + fileName);
+            dlg.setWindowFlags(Qt::Dialog | Qt::WindowTitleHint | Qt::WindowCloseButtonHint);
+            auto* layout = new QVBoxLayout(&dlg);
+            layout->addWidget(new QLabel("Press keys:"));
+            auto* editor = new QKeySequenceEdit(&dlg);
+            if (!currentKey.isEmpty()) editor->setKeySequence(QKeySequence(currentKey));
+            layout->addWidget(editor);
+            auto* cbGlobal = new QCheckBox("Global Shortcut", &dlg);
+            cbGlobal->setChecked(cfg.isShortcutGlobal(fileName));
+            layout->addWidget(cbGlobal);
+            auto* btnBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::Reset, &dlg);
+            layout->addWidget(btnBox);
+            connect(btnBox, &QDialogButtonBox::accepted, &dlg, &QDialog::accept);
+            connect(btnBox, &QDialogButtonBox::rejected, &dlg, &QDialog::reject);
+            connect(btnBox->button(QDialogButtonBox::Reset), &QPushButton::clicked, [&] { editor->clear(); dlg.accept(); });
+            if (dlg.exec() == QDialog::Accepted) {
+                cfg.setAppShortcut(fileName, editor->keySequence().toString(QKeySequence::PortableText));
+                cfg.setShortcutGlobal(fileName, cbGlobal->isChecked());
+            }
+        });
+        menu.exec(lw->mapToGlobal(pos));
+    });
+
+    connect(lw, &QListWidget::itemClicked, this, &Widget::confirmSelection);
+    connect(lw, &QListWidget::itemActivated, this, &Widget::confirmSelection);
 
     connect(qApp, &QApplication::focusWindowChanged, this, [this](QWindow* focusWindow) {
         if (focusWindow == nullptr) {
-            if (!this->underMouse()) // hide when lost focus & mouse outside (means user choose to)
-                hide();
-            else { // Windows Terminal will do
-                qWarning() << "Someone tried to steal focus!";
-            }
+            if (this->findChild<QMenu*>() || this->findChild<QDialog*>()) return;
+            if (!this->underMouse()) hide();
         }
     });
 }
 
-Widget::~Widget() {
-    delete ui;
+Widget::~Widget() { delete ui; }
+
+void Widget::confirmSelection() {
+    if (this->isVisible()) {
+        if (cfg.getMouseWarp() && !savedMousePos.isNull()) {
+            QCursor::setPos(savedMousePos);
+            savedMousePos = QPoint();
+        }
+        if (auto item = lw->currentItem()) {
+            auto group = item->data(Qt::UserRole).value<WindowGroup>();
+            if (!group.windows.empty()) {
+                WindowInfo targetWin = group.windows.at(0);
+                const auto lastActive = getLastActiveGroupWindow(group.exePath).first;
+                for (auto& info: group.windows) { if (info.hwnd == lastActive) { targetWin = info; break; } }
+                if (targetWin.hwnd) Util::switchToWindow(targetWin.hwnd);
+            }
+        }
+        hide();
+    }
 }
 
 void Widget::keyPressEvent(QKeyEvent* event) {
     auto key = event->key();
     auto modifiers = event->modifiers();
-    static const QHash<int, int> VimArrows = {
-        {Qt::Key_K, Qt::Key_Up},    // ↑
-        {Qt::Key_J, Qt::Key_Down},  // ↓
-        {Qt::Key_H, Qt::Key_Left},  // ←
-        {Qt::Key_L, Qt::Key_Right}, // →
-    };
-    if (key == Qt::Key_Tab) { // switch to next or prev
+    if (key == Qt::Key_Tab) {
         auto i = lw->currentRow();
         bool isShiftPressed = (modifiers & Qt::ShiftModifier);
-        // weird formula, but works (hhh)
         auto index = (i - (2 * isShiftPressed - 1) + lw->count()) % lw->count();
         lw->setCurrentRow(index);
-    } else if (key == Qt::Key_QuoteLeft && (modifiers & Qt::AltModifier)) { // Alt + `, 在前台窗口同组窗口内切换
-        if (this->isVisible() && !this->isMinimized()) {
-            // isVisible() == true if minimized
-            // 不使用`isForeground()`，即使`bringWindowToTop`(without active)，少数窗口也可能抢夺焦点，如`CAJViewer`
-            hide();
-            return;
-        }
+    } else if (key == Qt::Key_QuoteLeft && (modifiers & Qt::AltModifier)) {
+        if (this->isVisible() && !this->isMinimized()) { hide(); return; }
         auto foreWin = GetForegroundWindow();
-        if (groupWindowOrder.isEmpty()) {
-            auto targetExe = Util::getWindowProcessPath(foreWin);
-            groupWindowOrder = buildGroupWindowOrder(targetExe);
-        }
-        if (auto nextWin = rotateWindowInGroup(groupWindowOrder, foreWin, !(modifiers & Qt::ShiftModifier))) {
-            Util::switchToWindow(nextWin, true);
-            qInfo() << "(Alt+`)Switch to" << Util::getWindowTitle(nextWin) << Util::getClassName(nextWin);
-        }
+        if (groupWindowOrder.isEmpty()) groupWindowOrder = buildGroupWindowOrder(Util::getWindowProcessPath(foreWin));
+        if (auto nextWin = rotateWindowInGroup(groupWindowOrder, foreWin, !(modifiers & Qt::ShiftModifier))) Util::switchToWindow(nextWin, true);
     } else if (key == Qt::Key_Up || key == Qt::Key_Down) {
         if (auto item = lw->currentItem()) {
             auto center = lw->visualItemRect(item).center();
-            // 转发映射到WheelEvent
-            auto wheelEvent = new QWheelEvent(center, lw->mapToGlobal(center), {},
-                                              {key == Qt::Key_Up ? 120 : -120, 0},
-                                              Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+            auto wheelEvent = new QWheelEvent(center, lw->mapToGlobal(center), {}, {key == Qt::Key_Up ? 120 : -120, 0}, Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
             QApplication::postEvent(lw, wheelEvent);
         }
-    } else if (key == Qt::Key_Left || key == Qt::Key_Right) { // 默认情况下 左右键可以切换item 只需要处理边界循环即可
-        const int N = lw->count();
-        const int i = lw->currentRow();
-        if (key == Qt::Key_Left && i == 0)
-            lw->setCurrentRow(N - 1);
-        else if (key == Qt::Key_Right && i == N - 1)
-            lw->setCurrentRow(0);
-    } else if (VimArrows.contains(key)) { // map [K J H L] to [↑ ↓ ← →]
-        QApplication::postEvent(lw, new QKeyEvent(QEvent::KeyPress, VimArrows.value(key), modifiers));
+    } else if (key == Qt::Key_Return || key == Qt::Key_Enter || key == Qt::Key_Space) {
+        confirmSelection();
+        return;
+    } else if (key == Qt::Key_Escape) {
+        if (cfg.getMouseWarp() && !savedMousePos.isNull()) { QCursor::setPos(savedMousePos); savedMousePos = QPoint(); }
+        hide();
+        return;
     }
     QWidget::keyPressEvent(event);
 }
 
 bool Widget::forceShow() {
-    setWindowOpacity(0.005); // 减少闪烁发生(因Qt::WA_TranslucentBackground) in showMinimized()
+    setWindowOpacity(0.005);
     showMinimized();
     showNormal();
     setWindowOpacity(1);
     return isForeground();
 }
 
-/// show App description under the icon
 void Widget::showLabelForItem(QListWidgetItem* item, QString text) {
     if (!item) return;
-
-    if (text.isNull()) {
-        auto path = item->data(Qt::UserRole).value<WindowGroup>().exePath;
-        text = Util::getFileDescription(path);
-    }
+    auto group = item->data(Qt::UserRole).value<WindowGroup>();
+    if (text.isNull()) text = Util::getFileDescription(group.exePath);
     ui->label->setText(text);
     ui->label->adjustSize();
-
     auto itemRect = lw->visualItemRect(item);
     auto center = itemRect.center() + QPoint(0, itemRect.height() / 2 + ListWidgetMargin.bottom() / 2);
     center = lw->mapTo(this, center);
     auto labelRect = ui->label->rect();
     labelRect.moveCenter(center);
-
     auto bound = this->rect().marginsRemoved({5, 0, 5, 0});
     labelRect.moveRight(qMin(labelRect.right(), bound.right()));
-    labelRect.moveLeft(qMax(labelRect.left(), bound.left())); // left align
-
+    labelRect.moveLeft(qMax(labelRect.left(), bound.left()));
     ui->label->move(labelRect.topLeft());
 }
 
 void Widget::setupLabelFont() {
     static auto reloadLabelFontCfg = [this] {
-        const QStringList Fonts = {"Microsoft YaHei UI", "Microsoft YaHei", "Consolas"}; // fallback
         auto labelFont = ui->label->font();
         labelFont.setPointSize(cfg.get("label/font_size", 10).toInt());
-        auto defaultFF = QStringList{cfg.get("label/font_family", Fonts[0]).toString()};
-        labelFont.setFamilies(defaultFF << Fonts.mid(1));
         ui->label->setFont(labelFont);
-        qDebug() << labelFont.families();
-        qDebug() << "Label Actual Font:" << QFontInfo(labelFont).family();
     };
     reloadLabelFontCfg();
-
-    // auto reload
-    connect(&cfg, &ConfigManager::configEdited, this, [] {
-        reloadLabelFontCfg();
-    });
+    connect(&cfg, &ConfigManager::configEdited, this, [] { reloadLabelFontCfg(); });
 }
 
 void Widget::keyReleaseEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Alt) {
-        groupWindowOrder.clear(); // for Alt + `
-        if (this->isVisible()) {
-            // active selected window
-            if (auto item = lw->currentItem()) {
-                if (auto group = item->data(Qt::UserRole).value<WindowGroup>(); !group.windows.empty()) {
-                    WindowInfo targetWin = group.windows.at(0); // TODO 需要排序（lastActiveWindow 被关闭情况下）
-                    const auto lastActive = getLastActiveGroupWindow(group.exePath).first;
-                    for (auto& info: group.windows) {
-                        if (info.hwnd == lastActive) {
-                            targetWin = info;
-                            break;
-                        }
-                    }
-                    if (targetWin.hwnd) {
-                        Util::switchToWindow(targetWin.hwnd);
-                        qInfo() << "Switch to" << targetWin << group.exePath;
-                    }
-                }
-            }
-            hide(); //! must hide after active target window, or focus may fallback to prev foreground window (like 网易云音乐)
-        }
+        groupWindowOrder.clear();
+        if (cfg.getHoldMode()) confirmSelection();
     }
     QWidget::keyReleaseEvent(event);
 }
 
-void Widget::paintEvent(QPaintEvent*) { //不绘制会导致鼠标穿透背景
+void Widget::hideEvent(QHideEvent* event) { QWidget::hideEvent(event); }
+
+void Widget::paintEvent(QPaintEvent*) {
     QPainter painter(this);
     painter.setRenderHint(QPainter::Antialiasing);
-    painter.setPen(Qt::NoPen); //取消边框//pen决定边框颜色
-    painter.setBrush(QColor(25, 25, 25, 100));
+    painter.setPen(Qt::NoPen);
+    painter.setBrush(QColor(25, 25, 25, 120));
     painter.drawRect(rect());
 }
 
-/// 通知前台窗口变化
-/// @param hwnd 前台窗口句柄
-/// @param source 通知来源, for debug, @b Optional
-void Widget::notifyForegroundChanged(HWND hwnd, ForegroundChangeSource source) { // TODO isVisible or AltDown时，关闭前台更新通知
+void Widget::notifyForegroundChanged(HWND hwnd, ForegroundChangeSource source) {
     if (hwnd == this->hWnd()) return;
-    // （其实监听前台变化只是为了排序，不需要太精确，可以放松限制）
-    // 通过`EVENT_SYSTEM_FOREGROUND`触发时忽略`IsWindowVisible`，因为窗口在创建瞬间可能不可见
     if (!Util::isWindowAcceptable(hwnd, source == WinEvent)) return;
-    auto path = Util::getWindowProcessPath(hwnd); // TODO 比较耗时，最好仅在单次show期间缓存，同时避免hwnd复用造成缓存错误
-    // TODO 不能让winActiveOrder无限增长，需要定时清理
+    auto path = Util::getWindowProcessPath(hwnd);
     winActiveOrder[path].insert(hwnd, QDateTime::currentDateTime());
+}
 
-    auto sourceStr = QMetaEnum::fromType<ForegroundChangeSource>().valueToKey(source);
-    qDebug() << qUtf8Printable(QString("*ForeWin changed (%1):").arg(sourceStr)) // qUtf8Printable removes quotes ""
-            << Util::getWindowTitle(hwnd) << Util::getClassName(hwnd) << path << Util::getFileDescription(path);
-} // TODO 控制面板 和 资源管理器 exe是同一个，如何区分图标
-
-/// collect, filter, sort Windows for presentation
 QList<WindowGroup> Widget::prepareWindowGroupList() {
     QMap<QString, WindowGroup> winGroupMap;
     const auto list = Util::listValidWindows();
     for (auto hwnd: list) {
-        if (hwnd == this->hWnd()) continue; // skip self
+        if (hwnd == this->hWnd()) continue;
         auto path = Util::getWindowProcessPath(hwnd);
-        if (path.isEmpty()) continue; // TODO 可能需要管理员权限
+        if (path.isEmpty()) continue;
         auto& winGroup = winGroupMap[path];
-        if (winGroup.exePath.isEmpty()) { // QIcon::isNull 判断可能不太准（例如空图标）
+        if (winGroup.exePath.isEmpty()) {
             winGroup.exePath = path;
-            auto icon = Util::getCachedIcon(path, hwnd); // TODO background thread
-            if (path.endsWith("QQ\\bin\\QQ.exe", Qt::CaseInsensitive)) { // draw chat partner for classical QQ
-                QPixmap overlay = Util::getWindowIcon(hwnd);
-                const auto iSize = lw->iconSize();
-                QPixmap bgPixmap = icon.pixmap(iSize);
-                icon = Util::overlayIcon(bgPixmap, overlay, {{iSize.width() / 2, iSize.height() / 2}, iSize / 2});
-            }
-            winGroup.icon = icon;
+            winGroup.icon = Util::getCachedIcon(path, hwnd);
         }
         winGroup.addWindow({Util::getWindowTitle(hwnd), Util::getClassName(hwnd), hwnd});
     }
     auto winGroupList = winGroupMap.values();
-    // 按照活跃度排序
     std::sort(winGroupList.begin(), winGroupList.end(), [this](const WindowGroup& a, const WindowGroup& b) {
         auto timeA = getLastValidActiveGroupWindow(a).second;
         auto timeB = getLastValidActiveGroupWindow(b).second;
@@ -260,6 +271,38 @@ QList<WindowGroup> Widget::prepareWindowGroupList() {
         if (timeA.isValid() && timeB.isValid()) return timeA > timeB;
         return timeA.isValid();
     });
+
+    bestTargetExe = "";
+    DWORD forePid = 0;
+    if (lastForegroundWindow) GetWindowThreadProcessId(lastForegroundWindow, &forePid);
+    for (const auto& group : winGroupList) {
+        DWORD itemPid = 0;
+        if (!group.windows.isEmpty()) GetWindowThreadProcessId(group.windows.first().hwnd, &itemPid);
+        if (forePid == 0 || itemPid != forePid) {
+            bestTargetExe = group.exePath;
+            break;
+        }
+    }
+
+    auto pinnedApps = cfg.getPinnedApps();
+    if (!pinnedApps.isEmpty()) {
+        QMap<int, WindowGroup> pinned;
+        QMutableListIterator<WindowGroup> it(winGroupList);
+        while (it.hasNext()) {
+            auto& group = it.next();
+            QString name = QFileInfo(group.exePath).fileName();
+            if (pinnedApps.contains(name)) { pinned.insert(pinnedApps.value(name), group); it.remove(); }
+        }
+        QList<WindowGroup> finalList;
+        int normalIdx = 0;
+        int total = winGroupList.size() + pinned.size();
+        for (int i = 0; i < total; ++i) {
+            if (pinned.contains(i)) finalList.append(pinned.value(i));
+            else if (normalIdx < winGroupList.size()) finalList.append(winGroupList.at(normalIdx++));
+        }
+        while (normalIdx < winGroupList.size()) finalList.append(winGroupList.at(normalIdx++));
+        winGroupList = finalList;
+    }
     return winGroupList;
 }
 
@@ -267,129 +310,123 @@ bool Widget::prepareListWidget() {
     auto winGroupList = prepareWindowGroupList();
     lw->clear();
     for (auto& winGroup: winGroupList) {
-        auto item = new QListWidgetItem(winGroup.icon, {}); // null != "", which will completely hide text area
+        auto item = new QListWidgetItem(winGroup.icon, {});
         item->setData(Qt::UserRole, QVariant::fromValue(winGroup));
-        item->setSizeHint(lw->gridSize()); // 决定了delegate的绘制区域，比grid小的话，paintRect就不居中了，而且update也不及时
-//        item->setFlags(item->flags() & ~Qt::ItemIsSelectable); // 不可选中
+        item->setSizeHint(lw->gridSize());
         lw->addItem(item);
     }
-
-    // calculate Geometry
     if (auto firstItem = lw->item(0)) {
         auto firstRect = lw->visualItemRect(firstItem);
-        auto width = lw->gridSize().width() * lw->count() + (firstRect.x() - lw->frameWidth()); // 一些微小的噼里啪啦修正
+        auto width = lw->gridSize().width() * lw->count() + (firstRect.x() - lw->frameWidth());
         lw->setFixedWidth(width);
-
-        // get screen
-        bool displayOnPrimary = (cfg.getDisplayMonitor() == PrimaryMonitor);
-        auto screen = displayOnPrimary ?
-                      QGuiApplication::primaryScreen() :
-                      QGuiApplication::screenAt(QCursor::pos()); // multi-screen support
-        if (!screen && !displayOnPrimary) { // fallback to primary screen
-            qWarning() << "Cursor Screen nullptr! Fallback to primary";
-            screen = QApplication::primaryScreen();
-        }
-        if (!screen) {
-            qWarning() << "Screen nullptr!";
-            sysTray.showMessage("Error", "Screen nullptr!");
-            return false;
-        }
-
-        // move to scrren center
-        qDebug() << "Screen:" << screen->name();
+        auto screen = QGuiApplication::primaryScreen();
+        if (cfg.getDisplayMonitor() == MouseMonitor) screen = QGuiApplication::screenAt(QCursor::pos());
         auto lwRect = lw->rect();
         auto thisRect = lwRect.marginsAdded(ListWidgetMargin);
         thisRect.moveCenter(screen->geometry().center());
-
-        //region Fixed in Qt6, see commit [b927ee4b]
-        //      !!!WARNING: 对于多屏幕，直接使用setGeometry or move会报错(QWindowsWindow::setGeometry: Unable to set geometry) & size显示不正确！
-        //      报错时机为：从一个屏幕hide，再在另一个屏幕show; 第二次在同一个屏幕show，则正常
-        //      size显示不正确不能忍，遂改用WinAPI
-        //endregion
         this->setGeometry(thisRect);
-
-        //region Fixed in Qt6, see commit [b927ee4b]
-        //this->windowHandle()->setScreen(screen); // 若首次显示是在副屏，会导致size显示错误（如果没有这行）
-        // `toNativePixels`是针对Point的，会根据屏幕原点进行位移
-        // 对于其他类型（如Size），直接乘以`QHighDpiScaling::factor(screen)`即可
-        //auto physicalPos = QHighDpi::toNativePixels(thisRect.topLeft(), screen);
-        // 如果用SetWindowPos的话要注意加上`SWP_NOACTIVATE`，否则焦点有问题，没错，NoActive反而是Active (focus)的
-        //SetWindowPos(hWnd(), nullptr, physicalPos.x(), physicalPos.y(), 0, 0, SWP_NOACTIVATE | SWP_NOSIZE | SWP_NOZORDER);
-        // !!!NOTE: 用WinAPI控制size貌似有问题，在图标增减的时候，无法正确调整Width，离子谱；只能用resize
-        // 1. × 猜想是showNormal()恢复了原有的size，导致resize无效；但是改成show()也不行
-        // 2. 猜想是隐藏状态改变size无效？（不科学吧），但是在`SetWindowPos`前show()好像会好一点（第二次显示调整size成功）aaa
-        //this->resize(thisRect.size());
-        //endregion
-
-        lwRect.moveCenter(this->rect().center()); // local pos
+        lwRect.moveCenter(this->rect().center());
         lw->move(lwRect.topLeft());
-    } else {
-        // no item, hide ? TODO
-        return false;
-    }
+    } else return false;
 
-    // set current item
-    if (lw->count() >= 2) {
-        auto foreWin = GetForegroundWindow();
-        bool isFirstItemForeground = false;
-        for (auto& info: winGroupList.at(0).windows) {
-            if (info.hwnd == foreWin) {
-                isFirstItemForeground = true;
-                break;
+    if (lw->count() > 0) {
+        int targetRow = 0;
+        if (!bestTargetExe.isEmpty()) {
+            for (int i = 0; i < lw->count(); ++i) {
+                if (lw->item(i)->data(Qt::UserRole).value<WindowGroup>().exePath == bestTargetExe) { targetRow = i; break; }
             }
         }
-        // 如果第一个item是前台窗口，就选中第二个
-        // 因为有些情况：选中桌面 并不会产生一个item
-        lw->setCurrentRow(isFirstItemForeground ? 1 : 0); //! 首次显示时，该行特别耗时：472ms
-    } else if (lw->count() == 1) {
-        lw->setCurrentRow(0);
+        lw->setCurrentRow(targetRow);
     }
-
+    if (cfg.getMouseWarp()) {
+        if (auto item = lw->currentItem()) {
+            auto center = lw->visualItemRect(item).center();
+            QCursor::setPos(lw->mapToGlobal(center));
+        }
+    }
     return true;
 }
 
-bool Widget::requestShow() { // TODO 当前台是开始菜单（Win）时，会导致显示 但无法操控
+bool Widget::requestShow() {
+    HWND currentFore = GetForegroundWindow();
+    QString className = Util::getClassName(currentFore);
+    if (currentFore != this->hWnd() && className != "ForegroundStaging" && className != "XamlExplorerHostIslandWindow") {
+        lastForegroundWindow = currentFore;
+    }
+    if (cfg.getMouseWarp()) savedMousePos = QCursor::pos();
     return prepareListWidget() && forceShow();
 }
 
-/// Warning: the `HWND` not guarantee to be valid (may be closed)
+void Widget::onGlobalKeyDown(int vkCode) {
+    int qtKey = 0;
+    if (vkCode >= 0x30 && vkCode <= 0x39) qtKey = vkCode;
+    else if (vkCode >= 0x41 && vkCode <= 0x5A) qtKey = vkCode;
+    else if (vkCode >= VK_F1 && vkCode <= VK_F12) qtKey = Qt::Key_F1 + (vkCode - VK_F1);
+    if (qtKey == 0) return;
+    if (GetKeyState(VK_CONTROL) & 0x8000) qtKey += Qt::CTRL;
+    if (GetKeyState(VK_MENU) & 0x8000) qtKey += Qt::ALT;
+    if (GetKeyState(VK_SHIFT) & 0x8000) qtKey += Qt::SHIFT;
+    if ((GetKeyState(VK_LWIN) & 0x8000) || (GetKeyState(VK_RWIN) & 0x8000)) qtKey += Qt::META;
+    QString pressedStr = QKeySequence(qtKey).toString(QKeySequence::PortableText);
+    QString rawKeyStr = QKeySequence(vkCode).toString(QKeySequence::PortableText);
+    auto shortcuts = cfg.getAppShortcuts();
+    for (auto it = shortcuts.begin(); it != shortcuts.end(); ++it) {
+        QString recorded = it.value();
+        QString targetExeName = it.key();
+        if (recorded.compare(pressedStr, Qt::CaseInsensitive) == 0 || recorded.compare(rawKeyStr, Qt::CaseInsensitive) == 0 || (recorded.length() == 1 && pressedStr.endsWith(recorded, Qt::CaseInsensitive))) {
+            if (this->isVisible()) {
+                for (int i = 0; i < lw->count(); ++i) {
+                    if (QFileInfo(lw->item(i)->data(Qt::UserRole).value<WindowGroup>().exePath).fileName().compare(targetExeName, Qt::CaseInsensitive) == 0) {
+                        lw->setCurrentRow(i); confirmSelection(); return;
+                    }
+                }
+            } else if (cfg.isShortcutGlobal(targetExeName)) {
+                HWND foreWin = GetForegroundWindow();
+                const auto allWindows = Util::listValidWindows();
+                HWND firstMatchHwnd = nullptr; bool isAlreadyForeground = false;
+                for (HWND hwnd : allWindows) {
+                    QString path = Util::getWindowProcessPath(hwnd);
+                    if (QFileInfo(path).fileName().compare(targetExeName, Qt::CaseInsensitive) == 0) {
+                        if (!firstMatchHwnd) firstMatchHwnd = hwnd;
+                        if (hwnd == foreWin) { isAlreadyForeground = true; break; }
+                    }
+                }
+                if (isAlreadyForeground) ShowWindow(foreWin, SW_MINIMIZE);
+                else if (firstMatchHwnd) Util::switchToWindow(firstMatchHwnd, true);
+                return;
+            }
+        }
+    }
+}
+
 auto Widget::getLastActiveGroupWindow(const QString& exePath) -> QPair<HWND, QDateTime> {
     auto hwndOrder = winActiveOrder.value(exePath);
     if (hwndOrder.isEmpty()) return {nullptr, QDateTime()};
-    // QHash & QMap deref to value(QDateTime) rather than QPair
     auto iter = std::max_element(hwndOrder.begin(), hwndOrder.end());
     return {iter.key(), iter.value()};
 }
 
-/// return null if no window recorded in group
 auto Widget::getLastValidActiveGroupWindow(const WindowGroup& group) -> QPair<HWND, QDateTime> {
+    if (group.windows.isEmpty()) return {nullptr, QDateTime()};
     auto hwndOrder = winActiveOrder.value(group.exePath);
     if (hwndOrder.isEmpty()) return {nullptr, QDateTime()};
-
     QList<HWND> windows;
-    for (auto& info: group.windows)
-        windows << info.hwnd;
+    for (auto& info: group.windows) windows << info.hwnd;
     sortGroupWindows(windows, group.exePath);
-
-    if (auto time = hwndOrder.value(windows.first()); !time.isNull())
-        return {windows.first(), time};
-    else // check if the first HWND is recorded
-        return {nullptr, QDateTime()};
+    if (windows.isEmpty()) return {nullptr, QDateTime()};
+    if (auto time = hwndOrder.value(windows.first()); !time.isNull()) return {windows.first(), time};
+    return {nullptr, QDateTime()};
 }
 
-/// sort Windows of [Group specified by exePath], by active order (latest first)
 void Widget::sortGroupWindows(QList<HWND>& windows, const QString& exePath) {
+    if (windows.isEmpty()) return;
     auto activeOrdMap = winActiveOrder.value(exePath);
     if (activeOrdMap.isEmpty()) return;
-    // sort by active order
-    std::sort(windows.begin(), windows.end(), [&activeOrdMap](HWND a, HWND b) {
-        return activeOrdMap.value(a) > activeOrdMap.value(b); // default value if not found
-    }); // TODO update winActiveOrder! (remove invalid HWND)
+    std::sort(windows.begin(), windows.end(), [&activeOrdMap](HWND a, HWND b) { return activeOrdMap.value(a) > activeOrdMap.value(b); });
 }
 
-/// group by exePath, sort by active order (last active first)
 QList<HWND> Widget::buildGroupWindowOrder(const QString& exePath) {
-    auto windows = Util::listValidWindows(exePath); // filter by path
+    auto windows = Util::listValidWindows(exePath);
     sortGroupWindows(windows, exePath);
     return windows;
 }
@@ -399,217 +436,95 @@ bool Widget::eventFilter(QObject* watched, QEvent* event) {
         auto* wheelEvent = static_cast<QWheelEvent*>(event);
         auto cursorPos = wheelEvent->position().toPoint();
         if (auto item = lw->itemAt(cursorPos)) {
-            if (lw->currentItem() != item)
-                lw->setCurrentItem(item);
+            if (lw->currentItem() != item) lw->setCurrentItem(item);
             auto windowGroup = item->data(Qt::UserRole).value<WindowGroup>();
             if (windowGroup.windows.isEmpty()) return false;
-
             static QListWidgetItem* lastItem = nullptr;
             static HWND hwnd = nullptr;
-            if (lastItem != item) { // Alt+Tab也可能造成切换; 每次show列表都是重新构建，所以item指针必然不同（即使同一个app）
-                lastItem = item;
-                hwnd = nullptr;
-                groupWindowOrder.clear();
-            }
+            if (lastItem != item) { lastItem = item; hwnd = nullptr; groupWindowOrder.clear(); }
             auto targetExe = windowGroup.exePath;
             static bool isLastRollUp = true;
-            bool isRollUp = wheelEvent->angleDelta().x() > 0; // ListWidget的方向改成了从左到右，所以滚轮方向从y()变成x()了
-            if (groupWindowOrder.isEmpty())
-                groupWindowOrder = buildGroupWindowOrder(targetExe); // TODO 其实这里不需要build 直接用lw里的就行...
-
-            if (!hwnd) { // first time
-                hwnd = groupWindowOrder.first(); // 选择最后活跃的窗口 TODO 考虑当前窗口就是First的情况，需要跳过，类似WinGroup
-            } else { // select next window
-                if (isLastRollUp == isRollUp) // 滚轮方向切换时，不轮换窗口
-                    hwnd = rotateWindowInGroup(groupWindowOrder, hwnd, isRollUp);
-            }
+            bool isRollUp = wheelEvent->angleDelta().x() > 0;
+            if (groupWindowOrder.isEmpty()) groupWindowOrder = buildGroupWindowOrder(targetExe);
+            if (!hwnd) hwnd = groupWindowOrder.first();
+            else { if (isLastRollUp == isRollUp) hwnd = rotateWindowInGroup(groupWindowOrder, hwnd, isRollUp); }
             isLastRollUp = isRollUp;
-
-            HWND nextFocus = hwnd; // this隐藏后的焦点备选窗口, for `swtichToWindow` after AltUp
-            if (isRollUp) {
-                Util::bringWindowToTop(hwnd, this->hWnd()); // without activate
-            } else {
-                if (auto normal = rotateNormalWindowInGroup(groupWindowOrder, hwnd, false)) { // skip minimized
-                    ShowWindow(normal, SW_SHOWMINNOACTIVE); // minimize
-                    hwnd = normal;
-                    nextFocus = hwnd;
-                }
-                if (auto normal = rotateNormalWindowInGroup(groupWindowOrder, hwnd, false))
-                    nextFocus = normal; // 备选焦点切换为下一个非最小化窗口 after AltUp
+            HWND nextFocus = hwnd;
+            if (isRollUp) Util::bringWindowToTop(hwnd, this->hWnd());
+            else {
+                if (auto normal = rotateNormalWindowInGroup(groupWindowOrder, hwnd, false)) { ShowWindow(normal, SW_SHOWMINNOACTIVE); hwnd = normal; nextFocus = hwnd; }
+                if (auto normal = rotateNormalWindowInGroup(groupWindowOrder, hwnd, false)) nextFocus = normal;
             }
             notifyForegroundChanged(nextFocus, Inner);
             showLabelForItem(item, Util::getWindowTitle(nextFocus));
-            qDebug() << "Wheel" << isRollUp << Util::getWindowTitle(nextFocus) << hwnd;
-
-            return true; // stop propagation
+            return true;
         }
     }
     return false;
 }
 
-/// `forward`: true for restore, false for minimize
 void Widget::rotateTaskbarWindowInGroup(const QString& exePath, bool forward, int windows) {
-    qDebug() << "(Taskbar)Wheel on:" << exePath << forward << windows;
     if (exePath.isEmpty()) return;
-    if (!windows) { // 程序没有打开的窗口，处于关闭状态; 若不拦截，可能造成错误窗口被触发：explorer.exe -> msedge.exe
-        qDebug() << "No window for this app";
-        return;
-    }
-
+    if (!windows) return;
     static QString lastPath;
     static HWND lastHwnd = nullptr;
-    if (lastPath != exePath) {
-        lastPath = exePath;
-        groupWindowOrder.clear();
-    }
-    if (groupWindowOrder.isEmpty()) {
-        groupWindowOrder = buildGroupWindowOrder(exePath);
-        lastHwnd = nullptr;
-    }
-
-    if (groupWindowOrder.isEmpty()) {
-        qCritical() << "No window in group!" << exePath;
-        // 有些软件的窗口是由子进程创建的，如 steam.exe -> steamwebhelper.exe (持有窗口)
-        // 但是在任务栏只能获取到父进程steam.exe
-        // 这种情况下，需要查找其子进程的路径
-        auto childPaths = Util::getChildProcessPaths(exePath);
-        if (childPaths.isEmpty()) return;
-        if (childPaths.size() == 1) {
-            qDebug() << "Try to switch to child process:" << childPaths.first();
-            groupWindowOrder = buildGroupWindowOrder(childPaths.first());
-        } else {
-            // 如果有多个子进程路径，就根据validWindows过滤
-            qWarning() << "!Multiple child processes:" << childPaths;
-            QSet<QString> validPaths;
-            // If range-initializer returns a temporary, its lifetime is extended until the end of the loop
-            for (auto hwnd: Util::listValidWindows()) {
-                if (auto path = Util::getWindowProcessPath(hwnd); !path.isEmpty())
-                    validPaths.insert(path.toLower());
-            }
-            for (auto& path: childPaths) {
-                if (validPaths.contains(path.toLower())) {
-                    qDebug() << "Try to switch to valid child process:" << path;
-                    groupWindowOrder = buildGroupWindowOrder(path);
-                    break;
-                }
-            }
-        }
-        // TODO 有可能a进程开启b进程之后，a就关闭了，他俩也没有真的父子关系
-        //  例如：ksolaunch.exe -> wps.exe
-        //  此时只能通过File Description来匹配，均为“WPS Office”
-        if (groupWindowOrder.isEmpty()) { // 无力回天
-            qCritical() << "もうおしまいだ！";
-            return;
-        }
-    }
-
+    if (lastPath != exePath) { lastPath = exePath; groupWindowOrder.clear(); }
+    if (groupWindowOrder.isEmpty()) { groupWindowOrder = buildGroupWindowOrder(exePath); lastHwnd = nullptr; }
+    if (groupWindowOrder.isEmpty()) return;
     static bool isLastForward = true;
     HWND hwnd = nullptr;
     if (!lastHwnd) {
         hwnd = groupWindowOrder.first();
-        if (forward && hwnd == GetForegroundWindow()) // 如果first是前台窗口且forward，则轮换下一个
-            hwnd = rotateWindowInGroup(groupWindowOrder, hwnd, true);
+        if (forward && hwnd == GetForegroundWindow()) hwnd = rotateWindowInGroup(groupWindowOrder, hwnd, true);
     } else {
-        if (isLastForward == forward)
-            hwnd = rotateWindowInGroup(groupWindowOrder, lastHwnd, forward);
-        else
-            hwnd = lastHwnd;
+        if (isLastForward == forward) hwnd = rotateWindowInGroup(groupWindowOrder, lastHwnd, forward);
+        else hwnd = lastHwnd;
     }
     isLastForward = forward;
-
     if (forward) {
-        static auto mouseEvent = [](DWORD flag) {
-            mouse_event(flag, 0, 0, 0, 0);
-        };
-        if (windows == 1) { // 由于过滤的存在，groupWindowOrder.size() 不一定等于 windows(真实窗口数量)
-            // 单窗口情况下，模拟点击呼出，是最保险的
-            if ((hwnd != GetForegroundWindow() || IsIconic(hwnd))) { // 若采用SW_SHOWMINNOACTIVE, 则前台窗口不会变化，可能为刚刚最小化的窗口
-                mouseEvent(MOUSEEVENTF_LEFTDOWN);
-                mouseEvent(MOUSEEVENTF_LEFTUP);
-                qApp->processEvents();
-                qDebug() << "(Taskbar)Switch by click";
-            }
+        static auto mouseEvent = [](DWORD flag) { mouse_event(flag, 0, 0, 0, 0); };
+        if (windows == 1) {
+            if (hwnd != GetForegroundWindow() || IsIconic(hwnd)) { mouseEvent(MOUSEEVENTF_LEFTDOWN); mouseEvent(MOUSEEVENTF_LEFTUP); qApp->processEvents(); }
         } else {
-            // 在TaskListThumbnailWnd显示的情况下restore window会导致预览实时刷新，导致卡顿和闪烁
-            // 隐藏TaskListThumbnailWnd也无效，会自动show
-            // DwmSetWindowAttribute[DWMWA_FORCE_ICONIC_REPRESENTATION, DWMWA_DISALLOW_PEEK], 效果都不好，还是会刷新闪烁
-
-            // 只能采用偷鸡hack，按住左键的情况下，预览窗口会消失
             if (HWND thumbnail = Util::getCurrentTaskListThumbnailWnd(); IsWindowVisible(thumbnail)) {
-                qDebug() << "(Taskbar)#Press LButton";
                 mouseEvent(MOUSEEVENTF_LEFTDOWN);
-                // 由于本程序hook了mouse，所以必须处理全局鼠标事件（in事件循环）
-                QTimer::singleShot(20, this, [hwnd]() {
-                    Util::switchToWindow(hwnd, true); // TODO thumbnail隐藏之前 不要switch，并且block滚轮 防止闪烁卡顿
-                });
-            } else
-                Util::switchToWindow(hwnd, true);
-
+                QTimer::singleShot(20, this, [hwnd]() { Util::switchToWindow(hwnd, true); });
+            } else Util::switchToWindow(hwnd, true);
             static QTimer* timer = [this]() {
-                auto* timer = new QTimer;
-                timer->setSingleShot(true);
-                timer->setInterval(200);
-                // TODO cursor移动后立即释放 防止拖拽
+                auto* timer = new QTimer; timer->setSingleShot(true); timer->setInterval(200);
                 timer->callOnTimeout(this, [this]() {
-                    mouseEvent(MOUSEEVENTF_LEFTUP);
-                    qDebug() << "(Taskbar)#Release LButton";
-
-                    // 鼠标点击thumbnail之后，其获取焦点，此时若焦点在其窗口组成员中，thumbnail就不会隐藏，这是Windows机制
-                    // 只能通过将焦点转移到Taskbar使其隐藏
-                    // 直接 HIDE thumbnail 不太行，会导致之后restore窗口时 thumbnail刷新 + 窗口闪烁，闪瞎了
+                    mouse_event(MOUSEEVENTF_LEFTUP, 0, 0, 0, 0);
                     QTimer::singleShot(100, this, []() {
-                        // 等待thumbnail显示
                         if (HWND thumbnail = Util::getCurrentTaskListThumbnailWnd(); IsWindowVisible(thumbnail)) {
-                            if (HWND taskbar = FindWindow(L"Shell_TrayWnd", nullptr))
-                                Util::switchToWindow(taskbar, true);
+                            if (HWND taskbar = FindWindow(L"Shell_TrayWnd", nullptr)) Util::switchToWindow(taskbar, true);
                         }
                     });
                 });
                 return timer;
             }();
-            timer->stop();
-            timer->start();
+            timer->stop(); timer->start();
         }
-        qDebug() << "(Taskbar)Switch to" << hwnd << Util::getWindowTitle(hwnd) << Util::getClassName(hwnd);
     } else {
-        if (auto normal = rotateNormalWindowInGroup(groupWindowOrder, hwnd, false)) { // skip minimized
-            if (normal != hwnd)
-                qDebug() << "(Taskbar)Skip minimized" << hwnd << "->" << normal;
-            hwnd = normal;
-            ShowWindow(hwnd, SW_MINIMIZE); // SW_MINIMIZE 会让焦点自动回落到下一个窗口
-            // 当所有窗口隐藏后，getElementUnderMouse() 会变成"CEF-OSC-WIDGET"，但是焦点和前台窗口并不是他，离谱
-            // 此时Automation对鼠标下任务栏Element的判定会出错，solution为手动变焦到任务栏（见TaskbarWheelHooker.cpp）
-            // SW_SHOWMINNOACTIVE不会切换焦点，即便本窗口已经最小化，但仍然持有焦点；但这不是合理的行为，同时会让QQ Follower反复弹出
-            qDebug() << "(Taskbar)Minimize" << hwnd << Util::getWindowTitle(hwnd) << Util::getClassName(hwnd);
-        }
+        if (auto normal = rotateNormalWindowInGroup(groupWindowOrder, hwnd, false)) { ShowWindow(normal, SW_MINIMIZE); }
     }
-
     lastHwnd = hwnd;
 }
 
-/// select next(forward)(older) or prev window in group<br>
-/// Do nothing, but select HWND
 HWND Widget::rotateWindowInGroup(const QList<HWND>& windows, HWND current, bool forward) {
     const auto N = windows.size();
     if (N == 1) return windows.first();
     for (int i = 0; i < N; i++) {
         if (windows.at(i) == current) {
             auto next_i = forward ? (i + 1) : (i - 1);
-            auto next = windows.at((next_i + N) % N);
-            return next;
+            return windows.at((next_i + N) % N);
         }
     }
     return nullptr;
 }
 
-/// Select next (including `current`) normal (!minimized) window in group<br>
-/// return nullptr if all minimized
 HWND Widget::rotateNormalWindowInGroup(const QList<HWND>& windows, HWND current, bool forward) {
-    for (int i = 0; IsIconic(current) && i < windows.size(); i++) // skip minimized
-        current = rotateWindowInGroup(windows, current, forward);
+    for (int i = 0; IsIconic(current) && i < windows.size(); i++) current = rotateWindowInGroup(windows, current, forward);
     return IsIconic(current) ? nullptr : current;
 }
 
-void Widget::clearGroupWindowOrder() {
-    groupWindowOrder.clear();
-}
+void Widget::clearGroupWindowOrder() { groupWindowOrder.clear(); }
