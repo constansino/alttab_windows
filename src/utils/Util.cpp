@@ -433,26 +433,26 @@ namespace Util {
     // 更诡异的是，48x48的Icon，Follower是可以正常获取的，比64x64的实际Icon尺寸还要大，倒行逆施
     // 但是我无法得知真实图标大小，无法进行缩放，只能作罢
     QIcon getJumboIcon(const QString& filePath) {
-        SHFILEINFOW sfi = {nullptr};
+        SHFILEINFOW sfi = {};
         // Get the icon index using SHGetFileInfo
-        SHGetFileInfo(filePath.toStdWString().c_str(), 0, &sfi, sizeof(SHFILEINFOW), SHGFI_SYSICONINDEX);
+        if (!SHGetFileInfo(filePath.toStdWString().c_str(), 0, &sfi, sizeof(SHFILEINFOW), SHGFI_SYSICONINDEX))
+            return {};
 
         // 48x48 icons, use SHIL_EXTRALARGE
         // 256x256 icons (after Vista), use SHIL_JUMBO
-        IImageList* imageList;
+        IImageList* imageList = nullptr;
         HRESULT hResult = SHGetImageList(SHIL_JUMBO, IID_IImageList, (void**) &imageList);
 
         QIcon icon;
-        if (hResult == S_OK) {
-            HICON hIcon;
+        if (hResult == S_OK && imageList) {
+            HICON hIcon = nullptr;
             hResult = imageList->GetIcon(sfi.iIcon, ILD_TRANSPARENT, &hIcon);
-
-            if (hResult == S_OK) {
+            if (hResult == S_OK && hIcon) {
                 icon = QtWin::fromHICON(hIcon);
-                DestroyIcon(sfi.hIcon);
+                DestroyIcon(hIcon); // own handle from IImageList::GetIcon
             }
+            imageList->Release();
         }
-        imageList->Release();
         return icon;
     }
 
@@ -557,6 +557,7 @@ namespace Util {
         auto hIcon = reinterpret_cast<HICON>(SendMessageW(hwnd, WM_GETICON, ICON_BIG, 0));
         if (!hIcon) // 这种方式能获取更多图标，例如当窗口没有使用SETICON时
             hIcon = reinterpret_cast<HICON>(GetClassLongPtr(hwnd, GCLP_HICON));
+        if (!hIcon) return {};
         return QtWin::fromHICON(hIcon);
     }
 

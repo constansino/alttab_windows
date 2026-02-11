@@ -28,6 +28,11 @@ namespace QtWin {
 
     /// new implementation for Qt6
     QPixmap fromHICON(HICON icon) {
-        return QPixmap::fromImage(QImage::fromHICON(icon));
+        if (!icon) return {};
+        HICON safe = CopyIcon(icon);
+        if (!safe) return {};
+        QPixmap pixmap = QPixmap::fromImage(QImage::fromHICON(safe));
+        DestroyIcon(safe);
+        return pixmap;
     }
 } // QtWin
