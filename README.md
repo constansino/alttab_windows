@@ -50,7 +50,7 @@
 
 ```ini
 [General]
-HoldMode=true
+HoldMode=false
 MouseWarp=true
 DisplayMonitor=1   # 0=主屏 1=鼠标所在屏
 

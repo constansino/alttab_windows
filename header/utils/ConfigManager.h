@@ -5,12 +5,12 @@
 #include <QApplication>
 #include "ConfigManagerBase.h"
 
-// ×¢Òâ£º¶ÔÓÚ´óÁ¿Ê¹ÓÃµÄÀà£¬header-only Ä£Ê½»áµ¼ÖÂ±àÒëÊ±¼ä¹ý³¤
+// ×¢ï¿½â£ºï¿½ï¿½ï¿½Ú´ï¿½ï¿½ï¿½Ê¹ï¿½Ãµï¿½ï¿½à£¬header-only Ä£Ê½ï¿½áµ¼ï¿½Â±ï¿½ï¿½ï¿½Ê±ï¿½ï¿½ï¿½ï¿½ï¿½
 #define cfg ConfigManager::instance()
 
 enum DisplayMonitor {
-    PrimaryMonitor, // 0 Ö÷ÏÔÊ¾Æ÷
-    MouseMonitor, // 1 ¸úËæÊó±ê
+    PrimaryMonitor, // 0 ï¿½ï¿½ï¿½ï¿½Ê¾ï¿½ï¿½
+    MouseMonitor, // 1 ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
     EnumCount // Just for count
 };
 
@@ -42,7 +42,7 @@ public:
     }
 
     bool getHoldMode() {
-        return get("HoldMode", true).toBool();
+        return get("HoldMode", false).toBool();
     }
 
     void setHoldMode(bool on) {
@@ -50,7 +50,7 @@ public:
     }
 
     bool getMouseWarp() {
-        return get("MouseWarp", false).toBool();
+        return get("MouseWarp", true).toBool();
     }
 
     void setMouseWarp(bool on) {
