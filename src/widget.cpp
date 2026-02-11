@@ -321,6 +321,8 @@ bool Widget::prepareListWidget() {
         lw->setFixedWidth(width);
         auto screen = QGuiApplication::primaryScreen();
         if (cfg.getDisplayMonitor() == MouseMonitor) screen = QGuiApplication::screenAt(QCursor::pos());
+        if (!screen) screen = QGuiApplication::primaryScreen();
+        if (!screen) return false;
         auto lwRect = lw->rect();
         auto thisRect = lwRect.marginsAdded(ListWidgetMargin);
         thisRect.moveCenter(screen->geometry().center());
@@ -338,12 +340,6 @@ bool Widget::prepareListWidget() {
         }
         lw->setCurrentRow(targetRow);
     }
-    if (cfg.getMouseWarp()) {
-        if (auto item = lw->currentItem()) {
-            auto center = lw->visualItemRect(item).center();
-            QCursor::setPos(lw->mapToGlobal(center));
-        }
-    }
     return true;
 }
 
@@ -354,7 +350,17 @@ bool Widget::requestShow() {
         lastForegroundWindow = currentFore;
     }
     if (cfg.getMouseWarp()) savedMousePos = QCursor::pos();
-    return prepareListWidget() && forceShow();
+    const bool ok = prepareListWidget() && forceShow();
+    if (ok && cfg.getMouseWarp()) {
+        QTimer::singleShot(0, this, [this]() {
+            if (!this->isVisible()) return;
+            if (auto item = lw->currentItem()) {
+                auto center = lw->visualItemRect(item).center();
+                QCursor::setPos(lw->mapToGlobal(center));
+            }
+        });
+    }
+    return ok;
 }
 
 void Widget::onGlobalKeyDown(int vkCode) {
